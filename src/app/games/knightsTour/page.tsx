@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff } from 'lucide-react'
+import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit } from 'lucide-react'
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -25,6 +25,9 @@ export default function KnightsTourGame() {
   const [gameOver, setGameOver] = useState(false)
   const [gameResult, setGameResult] = useState("")
   const [blindMode, setBlindMode] = useState(false)
+  const [showBlindModeQuiz, setShowBlindModeQuiz] = useState(false)
+  const [quizAnswer, setQuizAnswer] = useState("")
+  const [quizError, setQuizError] = useState("")
   
   const isComplete = visited.size === boardSize * boardSize
 
@@ -107,8 +110,27 @@ export default function KnightsTourGame() {
   }
 
   function toggleBlindMode() {
-    setBlindMode(!blindMode)
-    resetGame(boardSize)
+    if (!blindMode) {
+      // Opening the quiz modal when trying to enable blind mode
+      setShowBlindModeQuiz(true)
+      setQuizAnswer("")
+      setQuizError("")
+    } else {
+      // Turning blind mode off doesn't require the quiz
+      setBlindMode(false)
+      resetGame(boardSize)
+    }
+  }
+  
+  function handleQuizSubmit() {
+    const correctAnswer = "tomorrow";
+    if (quizAnswer.toLowerCase() === correctAnswer) {
+      setBlindMode(true)
+      setShowBlindModeQuiz(false)
+      resetGame(boardSize)
+    } else {
+      setQuizError("Try again!")
+    }
   }
 
   return (
@@ -137,8 +159,18 @@ export default function KnightsTourGame() {
 
             <Tabs defaultValue="play" className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-gray-900">
-                <TabsTrigger value="play">Play</TabsTrigger>
-                <TabsTrigger value="rules">Rules</TabsTrigger>
+                <TabsTrigger 
+                value="play" 
+                className="text-white data-[state=active]:text-purple-500"
+                >
+                Play
+                </TabsTrigger>
+                <TabsTrigger 
+                value="rules" 
+                className="text-white data-[state=active]:text-purple-500"
+                >
+                Rules
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="play" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
                 <div className="text-center py-12">
@@ -173,6 +205,7 @@ export default function KnightsTourGame() {
                           onCheckedChange={toggleBlindMode}
                           className="data-[state=checked]:bg-purple-600"
                         />
+                        {blindMode && <BrainCircuit className="w-5 h-5 text-purple-400 ml-2" />}
                       </div>
                     </div>
                   </div>
@@ -226,7 +259,7 @@ export default function KnightsTourGame() {
 
                   <div className="flex justify-center gap-4 mb-8">
                     <Button className="bg-red-600 hover:bg-red-700" onClick={() => resetGame(boardSize)}>Start New Game</Button>
-                    <Button variant="outline" className="border-gray-600 text-gray-200 hover:bg-[#7102BF] hover:text-white" onClick={() => resetGame(boardSize)}>Reset Board</Button>
+                    <Button variant="outline" className="border-gray-600 text-black hover:bg-[#7102BF] hover:text-white" onClick={() => resetGame(boardSize)}>Reset Board</Button>
                   </div>
 
                   <div className="text-left max-w-md mx-auto bg-gray-800 p-4 rounded-lg">
@@ -291,6 +324,43 @@ export default function KnightsTourGame() {
             <Button onClick={() => setShowInvalidMove(false)} className="bg-purple-700 hover:bg-purple-800 text-white">
               Close
             </Button>
+          </div>
+        </div>
+      )}
+      
+      {/* Blind Mode Quiz Modal */}
+      {showBlindModeQuiz && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+          <div className="bg-gray-800 text-white rounded-lg p-8 shadow-xl max-w-md w-full text-center border border-purple-500">
+            <h2 className="text-2xl font-bold mb-6">Unlock Blind Mode</h2>
+            <div className="bg-gray-700 p-6 rounded-lg mb-6">
+              <p className="text-xl italic mb-2">Riddle:</p>
+              <p className="text-lg font-medium mb-4">"What is always coming but never arrives?"</p>
+              
+              <div className="flex flex-col space-y-4">
+                <input 
+                  type="text" 
+                  value={quizAnswer}
+                  onChange={(e) => setQuizAnswer(e.target.value)}
+                  placeholder="Your answer..."
+                  className="px-4 py-2 rounded-md bg-gray-600 border border-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  onKeyDown={(e) => e.key === 'Enter' && handleQuizSubmit()}
+                />
+                
+                {quizError && (
+                  <p className="text-red-400 text-sm">{quizError}</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-center gap-4">
+              <Button onClick={() => setShowBlindModeQuiz(false)} className="bg-gray-600 hover:bg-gray-700 text-white">
+                Cancel
+              </Button>
+              <Button onClick={handleQuizSubmit} className="bg-purple-700 hover:bg-purple-800 text-white">
+                Submit Answer
+              </Button>
+            </div>
           </div>
         </div>
       )}
