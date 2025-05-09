@@ -50,7 +50,7 @@ export default function Home() {
               description="A classic chess puzzle where you must move a knight to every square on the board without repeating."
               players="1"
               image="/images/game1.jpg" // remind me to find a better image
-              href="/games/game1"
+              href="/games/knightsTour"
             />
             {/* <GameCard
               title={<span className="text-red-500">Game 2</span>}
