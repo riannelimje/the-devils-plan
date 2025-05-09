@@ -3,11 +3,12 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, CastleIcon as ChessKnight } from 'lucide-react'
+import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff } from 'lucide-react'
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import Header from "@/components/header"
 
 const KNIGHT_MOVES = [
@@ -21,25 +22,72 @@ export default function KnightsTourGame() {
   const [visited, setVisited] = useState<Set<string>>(new Set(["0,0"]))
   const [path, setPath] = useState<[number, number][]>([[0, 0]])
   const [showInvalidMove, setShowInvalidMove] = useState(false)
-
+  const [gameOver, setGameOver] = useState(false)
+  const [gameResult, setGameResult] = useState("")
+  const [blindMode, setBlindMode] = useState(false)
+  
   const isComplete = visited.size === boardSize * boardSize
 
   function handleSquareClick(row: number, col: number) {
+    // Don't allow moves if game is over
+    if (gameOver) return
+
     const [kx, ky] = knightPos
     const dx = row - kx
     const dy = col - ky
     const key = `${row},${col}`
 
     const isLegalMove = KNIGHT_MOVES.some(([mx, my]) => mx === dx && my === dy)
-    if (isLegalMove && !visited.has(key)) {
+    
+    // Handle Blind Mode specific logic
+    if (blindMode) {
+      if (!isLegalMove || visited.has(key)) {
+        setGameOver(true)
+        setGameResult("Game Over! Invalid move in Blind Mode.")
+        return
+      }
+      
+      // Move is valid, update state
       const newVisited = new Set(visited)
       newVisited.add(key)
       setVisited(newVisited)
       setPath([...path, [row, col]])
       setKnightPos([row, col])
-      setShowInvalidMove(false)
+      
+      // Check if the game is complete
+      if (newVisited.size === boardSize * boardSize) {
+        setGameOver(true)
+        setGameResult("Congratulations! You completed the Knight's Tour in Blind Mode!")
+        return
+      }
+      
+      // Check if there are any valid moves left
+      const hasValidMovesLeft = KNIGHT_MOVES.some(([mx, my]) => {
+        const newRow = row + mx
+        const newCol = col + my
+        return (
+          newRow >= 0 && newRow < boardSize &&
+          newCol >= 0 && newCol < boardSize &&
+          !newVisited.has(`${newRow},${newCol}`)
+        )
+      })
+      
+      if (!hasValidMovesLeft) {
+        setGameOver(true)
+        setGameResult("Game Over! No valid moves remaining in Blind Mode.")
+      }
     } else {
-      setShowInvalidMove(true)
+      // Regular mode logic
+      if (isLegalMove && !visited.has(key)) {
+        const newVisited = new Set(visited)
+        newVisited.add(key)
+        setVisited(newVisited)
+        setPath([...path, [row, col]])
+        setKnightPos([row, col])
+        setShowInvalidMove(false)
+      } else {
+        setShowInvalidMove(true)
+      }
     }
   }
 
@@ -49,11 +97,18 @@ export default function KnightsTourGame() {
     setVisited(new Set(["0,0"]))
     setPath([[0, 0]])
     setShowInvalidMove(false)
+    setGameOver(false)
+    setGameResult("")
   }
 
   function handleSizeChange(value: string) {
     const newSize = parseInt(value)
     resetGame(newSize)
+  }
+
+  function toggleBlindMode() {
+    setBlindMode(!blindMode)
+    resetGame(boardSize)
   }
 
   return (
@@ -92,8 +147,8 @@ export default function KnightsTourGame() {
                     Move the knight to visit every square on the board exactly once. Can you complete the tour?
                   </p>
 
-                {/* select the size of the grid */}
-                  <div className="max-w-xs mx-auto mb-6">
+                  {/* Game controls */}
+                  <div className="flex flex-col items-center max-w-md mx-auto mb-6 space-y-4">
                     <Select onValueChange={handleSizeChange} defaultValue={boardSize.toString()}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select board size" />
@@ -106,11 +161,31 @@ export default function KnightsTourGame() {
                         ))}
                       </SelectContent>
                     </Select>
+                    
+                    <div className="flex items-center justify-center w-full bg-gray-800 p-3 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center">
+                          {blindMode ? <EyeOff className="w-5 h-5 text-purple-400" /> : <EyeIcon className="w-5 h-5 text-purple-400" />}
+                        </span>
+                        <span className="mr-2">Blind Mode</span>
+                        <Switch 
+                          checked={blindMode} 
+                          onCheckedChange={toggleBlindMode}
+                          className="data-[state=checked]:bg-purple-600"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  {isComplete && (
+                  {isComplete && !blindMode && (
                     <div className="bg-green-700 p-4 rounded-lg mb-4 font-semibold">
                       Congratulations! You completed the Knight's Tour in {path.length} moves.
+                    </div>
+                  )}
+
+                  {gameOver && blindMode && (
+                    <div className={`${gameResult.includes("Congratulations") ? "bg-green-700" : "bg-red-700"} p-4 rounded-lg mb-4 font-semibold`}>
+                      {gameResult}
                     </div>
                   )}
 
@@ -138,7 +213,7 @@ export default function KnightsTourGame() {
                             {isKnightHere && (
                               <ChessKnight className="w-8 h-8 text-purple-400 z-10" />
                             )}
-                            {isVisited && (
+                            {isVisited && !blindMode && (
                               <div className="absolute bottom-1 right-1 text-xs opacity-50">
                                 {moveIndex + 1}
                               </div>
@@ -151,7 +226,7 @@ export default function KnightsTourGame() {
 
                   <div className="flex justify-center gap-4 mb-8">
                     <Button className="bg-red-600 hover:bg-red-700" onClick={() => resetGame(boardSize)}>Start New Game</Button>
-                    <Button variant="outline" className="border-gray-600 text-black hover:bg-[#7102BF]" onClick={() => resetGame(boardSize)}>Reset Board</Button>
+                    <Button variant="outline" className="border-gray-600 text-gray-200 hover:bg-[#7102BF] hover:text-white" onClick={() => resetGame(boardSize)}>Reset Board</Button>
                   </div>
 
                   <div className="text-left max-w-md mx-auto bg-gray-800 p-4 rounded-lg">
@@ -161,6 +236,9 @@ export default function KnightsTourGame() {
                       <li>Knights move in an L-shape: 2 squares in one direction, then 1 square perpendicular</li>
                       <li>Visit all squares exactly once to complete the tour</li>
                       <li>Your moves are tracked and numbered on the board</li>
+                      <li className={blindMode ? "font-bold text-purple-300" : ""}>
+                        In Blind Mode: No numbering shown. Invalid moves or getting stuck ends the game!
+                      </li>
                     </ol>
                   </div>
                 </div>
@@ -170,7 +248,7 @@ export default function KnightsTourGame() {
                 <h3 className="text-xl font-bold mb-4">The Knight's Tour Rules</h3>
                 <div className="space-y-4 text-gray-300">
                   <p>
-                    Given an n × n chessboard with a Knight starting at the top-left corner (position (0, 0)). The task is to determine a valid Knight’s Tour where the Knight visits each cell exactly once following the standard L-shaped moves of a Knight in chess.
+                    Given an n × n chessboard with a Knight starting at the top-left corner (position (0, 0)). The task is to determine a valid Knight's Tour where the Knight visits each cell exactly once following the standard L-shaped moves of a Knight in chess.
                   </p>
                   <h4 className="font-bold text-white">Basic Rules:</h4>
                   <ul className="list-disc pl-5 space-y-2">
@@ -180,6 +258,17 @@ export default function KnightsTourGame() {
                     <li>You cannot visit a square more than once</li>
                     <li>The puzzle is complete when all squares have been visited exactly once</li>
                   </ul>
+                  
+                  <div className="bg-gray-800 p-4 rounded-lg mt-6">
+                    <h4 className="font-bold text-white mb-2">Blind Mode Rules:</h4>
+                    <ul className="list-disc pl-5 space-y-2">
+                      <li>Move numbers are not shown on the board</li>
+                      <li>Making an invalid move (non L-shape or revisiting a square) ends the game immediately</li>
+                      <li>Running out of valid moves without completing the tour ends the game</li>
+                      <li>Successfully visiting all squares completes the challenge</li>
+                    </ul>
+                  </div>
+                  
                   <div className="bg-gray-800 p-4 rounded-lg mt-6">
                     <h4 className="font-bold text-white mb-2">Historical Context:</h4>
                     <p>
@@ -194,7 +283,7 @@ export default function KnightsTourGame() {
       </main>
       
       {/* Invalid Move Modal */}
-      {showInvalidMove && (
+      {showInvalidMove && !blindMode && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
           <div className="bg-white text-black rounded-lg p-6 shadow-xl max-w-sm w-full text-center">
             <h2 className="text-xl font-bold mb-4">Invalid Move!</h2>
