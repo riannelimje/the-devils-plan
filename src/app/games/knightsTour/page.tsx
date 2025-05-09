@@ -19,6 +19,7 @@ export default function KnightsTourGame() {
   const [knightPos, setKnightPos] = useState<[number, number]>([0, 0])
   const [visited, setVisited] = useState<Set<string>>(new Set(["0,0"]))
   const [path, setPath] = useState<[number, number][]>([[0, 0]])
+  const [showInvalidMove, setShowInvalidMove] = useState(false)
 
   const isComplete = visited.size === BOARD_SIZE * BOARD_SIZE
 
@@ -35,6 +36,9 @@ export default function KnightsTourGame() {
       setVisited(newVisited)
       setPath([...path, [row, col]])
       setKnightPos([row, col])
+      setShowInvalidMove(false)
+    } else {
+      setShowInvalidMove(true)
     }
   }
 
@@ -42,6 +46,7 @@ export default function KnightsTourGame() {
     setKnightPos([0, 0])
     setVisited(new Set(["0,0"]))
     setPath([[0, 0]])
+    setShowInvalidMove(false)
   }
 
   return (
@@ -87,7 +92,6 @@ export default function KnightsTourGame() {
                   )}
 
                   <div className="bg-gray-800 rounded-xl p-8 max-w-md mx-auto mb-8">
-                    {/* 5x5 Chess Board */}
                     <div className="grid grid-cols-5 aspect-square gap-0 border border-gray-600">
                       {Array.from({ length: BOARD_SIZE * BOARD_SIZE }).map((_, i) => {
                         const row = Math.floor(i / BOARD_SIZE)
@@ -160,6 +164,19 @@ export default function KnightsTourGame() {
           </div>
         </div>
       </main>
+
+      {/* Invalid Move Modal */}
+      {showInvalidMove && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-white text-black rounded-lg p-6 shadow-xl max-w-sm w-full text-center">
+            <h2 className="text-xl font-bold mb-4">Invalid Move!</h2>
+            <p className="mb-6">That move is not allowed. Knights move in an L-shape and cannot revisit squares.</p>
+            <Button onClick={() => setShowInvalidMove(false)} className="bg-purple-700 hover:bg-purple-800 text-white">
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
