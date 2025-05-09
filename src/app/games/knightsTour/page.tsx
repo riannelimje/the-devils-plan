@@ -7,21 +7,22 @@ import { ArrowLeft, CastleIcon as ChessKnight } from 'lucide-react'
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Header from "@/components/header"
 
-const BOARD_SIZE = 5
 const KNIGHT_MOVES = [
   [2, 1], [1, 2], [-1, 2], [-2, 1],
   [-2, -1], [-1, -2], [1, -2], [2, -1]
 ]
 
 export default function KnightsTourGame() {
+  const [boardSize, setBoardSize] = useState(5)
   const [knightPos, setKnightPos] = useState<[number, number]>([0, 0])
   const [visited, setVisited] = useState<Set<string>>(new Set(["0,0"]))
   const [path, setPath] = useState<[number, number][]>([[0, 0]])
   const [showInvalidMove, setShowInvalidMove] = useState(false)
 
-  const isComplete = visited.size === BOARD_SIZE * BOARD_SIZE
+  const isComplete = visited.size === boardSize * boardSize
 
   function handleSquareClick(row: number, col: number) {
     const [kx, ky] = knightPos
@@ -42,11 +43,17 @@ export default function KnightsTourGame() {
     }
   }
 
-  function resetGame() {
+  function resetGame(newSize = boardSize) {
+    setBoardSize(newSize)
     setKnightPos([0, 0])
     setVisited(new Set(["0,0"]))
     setPath([[0, 0]])
     setShowInvalidMove(false)
+  }
+
+  function handleSizeChange(value: string) {
+    const newSize = parseInt(value)
+    resetGame(newSize)
   }
 
   return (
@@ -85,6 +92,22 @@ export default function KnightsTourGame() {
                     Move the knight to visit every square on the board exactly once. Can you complete the tour?
                   </p>
 
+                {/* select the size of the grid */}
+                  <div className="max-w-xs mx-auto mb-6">
+                    <Select onValueChange={handleSizeChange} defaultValue={boardSize.toString()}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select board size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[5, 6, 7, 8].map(size => (
+                          <SelectItem key={size} value={size.toString()}>
+                            {size} × {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {isComplete && (
                     <div className="bg-green-700 p-4 rounded-lg mb-4 font-semibold">
                       Congratulations! You completed the Knight's Tour in {path.length} moves.
@@ -92,10 +115,15 @@ export default function KnightsTourGame() {
                   )}
 
                   <div className="bg-gray-800 rounded-xl p-8 max-w-md mx-auto mb-8">
-                    <div className="grid grid-cols-5 aspect-square gap-0 border border-gray-600">
-                      {Array.from({ length: BOARD_SIZE * BOARD_SIZE }).map((_, i) => {
-                        const row = Math.floor(i / BOARD_SIZE)
-                        const col = i % BOARD_SIZE
+                    <div
+                      className={`grid aspect-square gap-0 border border-gray-600`}
+                      style={{
+                        gridTemplateColumns: `repeat(${boardSize}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {Array.from({ length: boardSize * boardSize }).map((_, i) => {
+                        const row = Math.floor(i / boardSize)
+                        const col = i % boardSize
                         const isBlackSquare = (row + col) % 2 === 1
                         const isKnightHere = knightPos[0] === row && knightPos[1] === col
                         const isVisited = visited.has(`${row},${col}`)
@@ -122,8 +150,8 @@ export default function KnightsTourGame() {
                   </div>
 
                   <div className="flex justify-center gap-4 mb-8">
-                    <Button className="bg-red-600 hover:bg-red-700" onClick={resetGame}>Start New Game</Button>
-                    <Button variant="outline" className="border-gray-600 text-black hover:bg-[#7102BF]" onClick={resetGame}>Reset Board</Button>
+                    <Button className="bg-red-600 hover:bg-red-700" onClick={() => resetGame(boardSize)}>Start New Game</Button>
+                    <Button variant="outline" className="border-gray-600 text-black hover:bg-[#7102BF]" onClick={() => resetGame(boardSize)}>Reset Board</Button>
                   </div>
 
                   <div className="text-left max-w-md mx-auto bg-gray-800 p-4 rounded-lg">
@@ -131,7 +159,7 @@ export default function KnightsTourGame() {
                     <ol className="list-decimal pl-5 space-y-1 text-sm text-gray-300">
                       <li>Click on a square to move the knight</li>
                       <li>Knights move in an L-shape: 2 squares in one direction, then 1 square perpendicular</li>
-                      <li>Visit all 25 squares exactly once to complete the tour</li>
+                      <li>Visit all squares exactly once to complete the tour</li>
                       <li>Your moves are tracked and numbered on the board</li>
                     </ol>
                   </div>
@@ -164,7 +192,7 @@ export default function KnightsTourGame() {
           </div>
         </div>
       </main>
-
+      
       {/* Invalid Move Modal */}
       {showInvalidMove && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
