@@ -26,9 +26,9 @@ export default function Header() {
           </Link>
         </nav>
         {/* im thinking if i n</div>eed a sign in */}
-        <Button variant="outline" className="border-red-500 text-red-500 hover:bg-red-950">
+        {/* <Button variant="outline" className="border-red-500 text-red-500 hover:bg-red-950">
           Sign In 
-        </Button>
+        </Button> */}
       </div>
     </header>
   )
