@@ -25,7 +25,7 @@ export default function Home() {
             </span>        
             </p>
           <div className="flex justify-center gap-4">
-            <Link href="/games"> 
+            <Link href="/games/knightsTour"> 
             <Button className="bg-red-600 hover:bg-red-700">
               Play Now <ArrowRight className="ml-2 h-4 w-4" />
               {/* // i can lead this to the first game ig  */}
