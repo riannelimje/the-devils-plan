@@ -17,9 +17,14 @@ interface GameCardProps {
 export default function GameCard({ title, description, players, image, href }: GameCardProps) {
   return (
     <Card className="bg-gray-900 border-gray-800 overflow-hidden hover:border-red-900 transition-all duration-300">
-      <div className="relative h-48 w-full">
-        <Image src={image || "/placeholder.svg"} alt={typeof title === "string" ? title : "Game image"} fill className="object-cover" />
-      </div>
+        <div className="relative h-48 w-full">
+        <Image
+            src={image}
+            alt={typeof title === "string" ? title : "Game image"}
+            fill
+            className="object-contain"
+        />
+        </div>
       <CardHeader>
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription className="text-gray-400">{description}</CardDescription>

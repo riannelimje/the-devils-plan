@@ -49,21 +49,21 @@ export default function Home() {
               title={<span className="text-red-500">The Knight's Tour</span>}
               description="A classic chess puzzle where you must move a knight to every square on the board without repeating."
               players="1"
-              image="/images/game1.jpg" // remind me to find a better image
+              image="/images/game1.png" // remind me to find a better image
               href="/games/knightsTour"
             />
             {/* <GameCard
               title={<span className="text-red-500">Game 2</span>}
               description="Description of Game 2"
               players="4"
-              image="/images/game2.jpg"
+              image="/images/game2.png"
               href="/games/game2"
             />
             <GameCard
               title={<span className="text-red-500">Game 3</span>}
               description="Description of Game 3"
               players="4"
-              image="/images/game3.jpg"
+              image="/images/game3.png"
               href="/games/game3"
             /> */}
             </div>

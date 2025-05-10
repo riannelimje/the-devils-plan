@@ -147,12 +147,13 @@ export default function KnightsTourGame() {
         <div className="grid grid-cols-1 gap-8">
           <div>
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-6">
-              <div className="relative h-64 w-full">
+              <div className="relative h-64 w-full flex items-center justify-center">
                 <Image
-                  src="/images/game1.jpg"
-                  alt="The Knight's Tour"
-                  fill
-                  className="object-cover"
+                src="/images/game1.png"
+                alt="The Knight's Tour"
+                width={300} // Set a fixed width
+                height={300} // Set a fixed height
+                className="object-contain" // Use object-contain to prevent stretching
                 />
               </div>
             </div>
