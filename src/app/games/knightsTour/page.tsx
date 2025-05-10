@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState} from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit } from 'lucide-react'
@@ -336,7 +336,7 @@ export default function KnightsTourGame() {
             <h2 className="text-2xl font-bold mb-6">Unlock Blind Mode</h2>
             <div className="bg-gray-700 p-6 rounded-lg mb-6">
               <p className="text-xl italic mb-2">Riddle:</p>
-              <p className="text-lg font-medium mb-4">"What is always coming but never arrives?"</p>
+              <p className="text-lg font-medium mb-4">&quot;What is always coming but never arrives?&quot;</p>
               
               <div className="flex flex-col space-y-4">
                 <input 

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, Crown } from 'lucide-react'
+import { ArrowRight} from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import Header from "@/components/header"
 import GameCard from "@/components/gameCard"
