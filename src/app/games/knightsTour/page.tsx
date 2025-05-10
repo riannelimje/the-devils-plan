@@ -175,7 +175,7 @@ export default function KnightsTourGame() {
               </TabsList>
               <TabsContent value="play" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
                 <div className="text-center py-12">
-                  <h3 className="text-2xl font-bold mb-4">The Knight's Tour</h3>
+                  <h3 className="text-2xl font-bold mb-4">The Knight&apos;s Tour</h3>
                   <p className="text-gray-400 mb-8">
                     Move the knight to visit every square on the board exactly once. Can you complete the tour?
                   </p>
@@ -213,7 +213,7 @@ export default function KnightsTourGame() {
 
                   {isComplete && !blindMode && (
                     <div className="bg-green-700 p-4 rounded-lg mb-4 font-semibold">
-                      Congratulations! You completed the Knight's Tour in {path.length} moves.
+                      Congratulations! You completed the Knight&apos;s Tour in {path.length} moves.
                     </div>
                   )}
 
@@ -279,10 +279,10 @@ export default function KnightsTourGame() {
               </TabsContent>
 
               <TabsContent value="rules" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
-                <h3 className="text-xl font-bold mb-4">The Knight's Tour Rules</h3>
+                <h3 className="text-xl font-bold mb-4">The Knight&apos;s Tour Rules</h3>
                 <div className="space-y-4 text-gray-300">
                   <p>
-                    Given an n × n chessboard with a Knight starting at the top-left corner (position (0, 0)). The task is to determine a valid Knight's Tour where the Knight visits each cell exactly once following the standard L-shaped moves of a Knight in chess.
+                    Given an n × n chessboard with a Knight starting at the top-left corner (position (0, 0)). The task is to determine a valid Knight&apos;s Tour where the Knight visits each cell exactly once following the standard L-shaped moves of a Knight in chess.
                   </p>
                   <h4 className="font-bold text-white">Basic Rules:</h4>
                   <ul className="list-disc pl-5 space-y-2">
@@ -306,7 +306,7 @@ export default function KnightsTourGame() {
                   <div className="bg-gray-800 p-4 rounded-lg mt-6">
                     <h4 className="font-bold text-white mb-2">Historical Context:</h4>
                     <p>
-                      The Knight's Tour problem was first documented by mathematician Leonhard Euler in 1759. It has been studied extensively in mathematics and computer science as an example of a Hamiltonian path problem.
+                      The Knight&apos;s Tour problem was first documented by mathematician Leonhard Euler in 1759. It has been studied extensively in mathematics and computer science as an example of a Hamiltonian path problem.
                     </p>
                   </div>
                 </div>

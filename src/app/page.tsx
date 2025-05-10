@@ -14,13 +14,13 @@ export default function Home() {
         {/* Hero Section */}
         <section className="mb-16 text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-4">
-            Outlast the <span className="text-red-500">Devil's</span> Game
+            Outlast the <span className="text-red-500">Devil&apos;s</span> Game
             </h1>
           <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            Challenge yourself with the same mental games featured in Netflix's 
+            Challenge yourself with the same mental games featured in Netflix&apos;s 
             <br />
             <span className="font-bold text-purple-500 text-2xl md:text-3xl relative">
-              The Devil's Plan 2
+              The Devil&apos;s Plan 2
               <span className="absolute inset-0 blur-md opacity-50 bg-purple-500 -z-10 rounded-lg"></span>
             </span>        
             </p>
@@ -46,7 +46,7 @@ export default function Home() {
           </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <GameCard
-              title={<span className="text-red-500">The Knight's Tour</span>}
+              title={<span className="text-red-500">The Knight&apos;s Tour</span>}
               description="A classic chess puzzle where you must move a knight to every square on the board without repeating."
               players="1"
               image="/images/game1.png" // remind me to find a better image

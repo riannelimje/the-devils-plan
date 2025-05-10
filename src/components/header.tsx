@@ -17,7 +17,7 @@ export default function Header() {
                   className="object-contain"
                 />
               </div>
-              <h1 className="text-xl font-bold">The Devil's Plan</h1>
+              <h1 className="text-xl font-bold">The Devil&apos;s Plan</h1>
           </Link>
         </div>
         <nav className="hidden md:flex items-center gap-6 ml-auto pr-4">
