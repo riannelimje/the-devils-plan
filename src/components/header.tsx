@@ -20,7 +20,8 @@ export default function Header() {
           </Link>
         </div>
         <nav className="hidden md:flex items-center gap-6 ml-auto pr-4">
-          <Link href="/about" className="text-white hover:text-red-400 transition">
+          {/* update this link later */}
+          <Link href="/" className="text-white hover:text-red-400 transition"> 
             About
           </Link>
         </nav>
