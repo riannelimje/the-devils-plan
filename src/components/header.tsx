@@ -21,7 +21,7 @@ export default function Header() {
         </div>
         <nav className="hidden md:flex items-center gap-6 ml-auto pr-4">
           {/* update this link later */}
-          <Link href="/" className="text-white hover:text-red-400 transition"> 
+          <Link href="/about" className="text-white hover:text-red-400 transition"> 
             About
           </Link>
         </nav>
