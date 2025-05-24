@@ -52,14 +52,14 @@ export default function Home() {
               image="/images/game1.png" // remind me to find a better image
               href="/games/knightsTour"
             />
-            {/* <GameCard
-              title={<span className="text-red-500">Game 2</span>}
-              description="Description of Game 2"
-              players="4"
-              image="/images/game2.png"
-              href="/games/game2"
-            />
             <GameCard
+              title={<span className="text-red-500">Remove One</span>}
+              description="The objective is to strategically play numbered cards to survive a series of rounds, with survival determined at specific intervals"
+              players="7"
+              image="/images/game2.png"
+              href="/games/removeOne"
+            />
+            {/* <GameCard
               title={<span className="text-red-500">Game 3</span>}
               description="Description of Game 3"
               players="4"
