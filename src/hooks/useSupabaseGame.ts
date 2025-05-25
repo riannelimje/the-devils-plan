@@ -440,23 +440,26 @@ export function useSupabaseGame() {
         return
       }
 
-      // Reset for next round and release cards from holding box back to deck
+      // Check if we need to reset the deck (after rounds 6 and 12)
+      const shouldResetDeck = [6, 12].includes(room.game_state.currentRound)
+      console.log("Current round:", room.game_state.currentRound)
+      console.log("Should reset deck?", shouldResetDeck)
+
+
       const allPlayers = players.filter((p) => true)
 
       for (const player of allPlayers) {
-        console.log(`BEFORE next round - Player ${player.player_name}:`, {
-          deck: player.player_data.deck,
-          holdingBox: player.player_data.holdingBox,
-        })
+        let newDeck: number[], newHoldingBox: number[]
 
-        // FIXED LOGIC: Move cards from holding box back to deck (no duplicates)
-        const newDeck = [...player.player_data.deck, ...player.player_data.holdingBox]
-        const newHoldingBox: number[] = [] // Clear holding box
-
-        console.log(`AFTER next round - Player ${player.player_name}:`, {
-          newDeck,
-          newHoldingBox,
-        })
+        if (shouldResetDeck) {
+          // FULL RESET: Give a fresh deck and clear holding box
+          newDeck = [...INITIAL_DECK]
+          newHoldingBox = []
+        } else {
+          // Normal: move holding box cards back to deck
+          newDeck = [...player.player_data.deck, ...player.player_data.holdingBox]
+          newHoldingBox = []
+        }
 
         await supabase
           .from("players")
