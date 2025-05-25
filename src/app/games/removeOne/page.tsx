@@ -32,7 +32,7 @@ export default function RemoveOneGame() {
   const [gameSettings, setGameSettings] = useState({
     totalRounds: 18,
     survivalRounds: "3,6,9,12,18",
-    maxPlayers: 8,
+    minPlayers: 2,
   })
 
   // Get current player
@@ -58,6 +58,7 @@ export default function RemoveOneGame() {
 
       await createRoom(playerName.trim(), {
         ...gameSettings,
+        maxPlayers: gameSettings.minPlayers, // Use minPlayers as maxPlayers
         survivalRounds,
       })
     } catch (err) {
@@ -145,7 +146,7 @@ export default function RemoveOneGame() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="font-bold mb-2">
-                        Players ({players.length}/{room.game_settings.maxPlayers})
+                        Players ({players.length}/{gameSettings.minPlayers || room.game_settings.maxPlayers || 2})
                       </h3>
                       <div className="space-y-2">
                         {players.map((player) => (
@@ -167,9 +168,9 @@ export default function RemoveOneGame() {
                       <Button
                         onClick={startGame}
                         className="w-full bg-red-600 hover:bg-red-700"
-                        disabled={players.length < 3}
+                        disabled={players.length < (room.game_settings.maxPlayers || 2)}
                       >
-                        Start Game ({players.length} players)
+                        Start Game ({players.length}/{room.game_settings.maxPlayers || 2} min players)
                       </Button>
                     )}
 
@@ -225,22 +226,61 @@ export default function RemoveOneGame() {
                         placeholder="Enter your name"
                       />
                     </div>
+
+                    <div className="grid gap-4">
+                      <div>
+                        <Label>Number of Players</Label>
+                        <Input
+                          type="number"
+                          min="2"
+                          max="8"
+                          value={gameSettings.minPlayers}
+                          onChange={(e) =>
+                            setGameSettings((prev) => ({
+                              ...prev,
+                              minPlayers: Number.parseInt(e.target.value) || 2,
+                            }))
+                          }
+                          className="bg-gray-800 border-gray-700"
+                        />
+                      </div>
+                    </div>
+
                     <div>
-                      <Label>Max Players</Label>
+                      <Label>Total Rounds</Label>
                       <Input
                         type="number"
-                        min="3"
-                        max="12"
-                        value={gameSettings.maxPlayers}
+                        min="5"
+                        max="30"
+                        value={gameSettings.totalRounds}
                         onChange={(e) =>
                           setGameSettings((prev) => ({
                             ...prev,
-                            maxPlayers: Number.parseInt(e.target.value) || 8,
+                            totalRounds: Number.parseInt(e.target.value) || 18,
                           }))
                         }
                         className="bg-gray-800 border-gray-700"
                       />
                     </div>
+
+                    <div>
+                      <Label>Survival Rounds (comma-separated)</Label>
+                      <Input
+                        value={gameSettings.survivalRounds}
+                        onChange={(e) =>
+                          setGameSettings((prev) => ({
+                            ...prev,
+                            survivalRounds: e.target.value,
+                          }))
+                        }
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="3,6,9,12,18"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Enter round numbers where players get eliminated (e.g., 3,6,9,12,18)
+                      </p>
+                    </div>
+
                     <Button onClick={handleCreateRoom} className="w-full bg-red-600 hover:bg-red-700">
                       Create Game
                     </Button>
@@ -306,7 +346,10 @@ export default function RemoveOneGame() {
                     <p className="mb-4 text-white">Select exactly 2 cards:</p>
                     <div className="grid grid-cols-4 gap-2 mb-4 max-w-md">
                       {getAvailableCards(currentPlayer).map((card: number) => {
-                        const isSelected = currentPlayer.player_data.selectedCards?.includes(card) || false
+                        const selectedCards = currentPlayer.player_data.selectedCards || []
+                        const validSelected = selectedCards.filter((c) => c !== -1)
+                        const isSelected = validSelected.includes(card)
+
                         return (
                           <button
                             key={card}
@@ -316,10 +359,7 @@ export default function RemoveOneGame() {
                                 : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
                             }`}
                             onClick={() => handleCardSelection(card)}
-                            disabled={
-                              !isSelected &&
-                              (currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0) >= 2
-                            }
+                            disabled={!isSelected && validSelected.length >= 2}
                           >
                             {card}
                           </button>
@@ -328,6 +368,11 @@ export default function RemoveOneGame() {
                     </div>
                     <div className="text-sm text-gray-300">
                       Selected: {currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0}/2 cards
+                      {currentPlayer.player_data.selectedCards && (
+                        <span className="ml-2 text-white">
+                          [{currentPlayer.player_data.selectedCards.filter((c) => c !== -1).join(", ")}]
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
