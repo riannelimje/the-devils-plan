@@ -340,14 +340,52 @@ export function useSupabaseGame() {
       const lowestUnique = uniqueCards.length > 0 ? Math.min(...uniqueCards.map((sub) => sub.card)) : null
       const winner = lowestUnique ? submissions.find((sub) => sub.card === lowestUnique) : null
 
-      // Update players with results and CORRECT card management
+      console.log("Processing round results:", {
+        submissions,
+        cardCounts,
+        uniqueCards,
+        lowestUnique,
+        winner,
+      })
+
+      // Update players with FIXED card management
       for (const player of activePlayers) {
         const isWinner = player.id === winner?.playerId
         const usedCard = player.player_data.finalCard! // Card that was submitted (will be permanently removed)
         const unusedCard = player.player_data.selectedCards!.find((card) => card !== usedCard)! // Card not chosen (goes to holding box)
 
-        const newDeck = player.player_data.deck.filter((card) => card !== usedCard && card !== unusedCard)
-        const newHoldingBox = [...player.player_data.holdingBox, unusedCard]
+        console.log(`BEFORE - Player ${player.player_name}:`, {
+          deck: player.player_data.deck,
+          holdingBox: player.player_data.holdingBox,
+          usedCard,
+          unusedCard,
+        })
+
+        // FIXED LOGIC: Properly manage cards without duplicates
+        // 1. Start with current deck
+        // 2. Remove the used card permanently (it's discarded)
+        // 3. Remove the unused card from deck and put it in holding box
+        const newDeck = [...player.player_data.deck]
+        const newHoldingBox = [...player.player_data.holdingBox]
+
+        // Remove used card from deck (permanently discarded)
+        const usedCardIndex = newDeck.indexOf(usedCard)
+        if (usedCardIndex > -1) {
+          newDeck.splice(usedCardIndex, 1)
+        }
+
+        // Remove unused card from deck and add to holding box
+        const unusedCardIndex = newDeck.indexOf(unusedCard)
+        if (unusedCardIndex > -1) {
+          newDeck.splice(unusedCardIndex, 1)
+          newHoldingBox.push(unusedCard)
+        }
+
+        console.log(`AFTER - Player ${player.player_name}:`, {
+          newDeck,
+          newHoldingBox,
+          pointsAwarded: isWinner ? usedCard : 0,
+        })
 
         await supabase
           .from("players")
@@ -376,6 +414,7 @@ export function useSupabaseGame() {
         .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
+      console.error("Error processing round results:", err)
     }
   }
 
@@ -405,8 +444,19 @@ export function useSupabaseGame() {
       const allPlayers = players.filter((p) => true)
 
       for (const player of allPlayers) {
-        // CORRECT LOGIC: Move cards from holding box back to deck
+        console.log(`BEFORE next round - Player ${player.player_name}:`, {
+          deck: player.player_data.deck,
+          holdingBox: player.player_data.holdingBox,
+        })
+
+        // FIXED LOGIC: Move cards from holding box back to deck (no duplicates)
         const newDeck = [...player.player_data.deck, ...player.player_data.holdingBox]
+        const newHoldingBox: number[] = [] // Clear holding box
+
+        console.log(`AFTER next round - Player ${player.player_name}:`, {
+          newDeck,
+          newHoldingBox,
+        })
 
         await supabase
           .from("players")
@@ -419,7 +469,7 @@ export function useSupabaseGame() {
               hasSubmittedCards: false,
               hasSubmittedFinalChoice: false,
               deck: newDeck,
-              holdingBox: [], // Clear holding box - cards are now back in deck
+              holdingBox: newHoldingBox,
             },
           })
           .eq("id", player.id)
@@ -439,6 +489,7 @@ export function useSupabaseGame() {
         .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
+      console.error("Error continuing to next round:", err)
     }
   }
 
@@ -507,6 +558,25 @@ export function useSupabaseGame() {
 
     loadPlayers()
   }, [room])
+
+  // Auto-process round when all players have submitted final choices
+  useEffect(() => {
+    if (!room || room.game_state.gamePhase !== "finalChoice") return
+
+    const activePlayers = players.filter((p) => true)
+    const allSubmittedFinal =
+      activePlayers.length > 0 && activePlayers.every((p) => p.player_data.hasSubmittedFinalChoice)
+
+    if (allSubmittedFinal) {
+      const currentPlayer = players.find((p) => p.id === currentPlayerId)
+      if (currentPlayer?.is_host) {
+        // Small delay to ensure all updates are processed
+        setTimeout(() => {
+          processRoundResults()
+        }, 1500)
+      }
+    }
+  }, [players, room])
 
   return {
     room,

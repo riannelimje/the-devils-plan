@@ -268,7 +268,7 @@ export default function RemoveOneGame() {
                       <Label>Total Rounds</Label>
                       <Input
                         type="number"
-                        min="5"
+                        min="3"
                         max="20"
                         value={gameSettings.totalRounds}
                         onChange={(e) =>
@@ -374,9 +374,11 @@ export default function RemoveOneGame() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400 mb-4">
-                        Cards in holding box (frozen this round): [{currentPlayer.player_data.holdingBox.join(", ")}]
-                      </div>
+                      {currentPlayer.player_data.holdingBox.length > 0 && (
+                        <div className="text-xs text-orange-400 mb-4">
+                          Cards frozen this round: [{currentPlayer.player_data.holdingBox.join(", ")}]
+                        </div>
+                      )}
                       <Button
                         onClick={handleSubmitCards}
                         className="bg-green-600 hover:bg-green-700"
@@ -542,7 +544,9 @@ export default function RemoveOneGame() {
                     </div>
                   ) : (
                     <div className="text-center mb-6">
-                      <p className="text-lg font-bold text-gray-400">No winner this round - no unique lowest card!</p>
+                      <p className="text-lg font-bold text-gray-400">
+                        🤝 It's a draw! No unique lowest card this round.
+                      </p>
                     </div>
                   )}
 
@@ -626,7 +630,7 @@ export default function RemoveOneGame() {
                         Available Cards: <span className="text-blue-400">{getAvailableCards(player).length}</span>
                       </div>
                       <div className="text-white">
-                        Holding Box: <span className="text-orange-400">{player.player_data.holdingBox.length}</span>
+                        Frozen Cards: <span className="text-orange-400">{player.player_data.holdingBox.length}</span>
                       </div>
                     </div>
                   </div>
