@@ -412,7 +412,7 @@ export default function RemoveOneGame() {
                 <div>
                   <div className="flex items-center gap-2 mb-6">
                     <Eye className="w-5 h-5 text-blue-400" />
-                    <h3 className="text-xl font-bold">All Players' Card Selections</h3>
+                    <h3 className="text-xl font-bold">All Players Card Selections</h3>
                   </div>
 
                   {/* Show all players' cards */}
@@ -547,7 +547,7 @@ export default function RemoveOneGame() {
                   ) : (
                     <div className="text-center mb-6">
                       <p className="text-lg font-bold text-gray-400">
-                        🤝 It's a draw! No unique lowest card this round.
+                        🤝 It&apos;s a draw! No unique lowest card this round.
                       </p>
                     </div>
                   )}

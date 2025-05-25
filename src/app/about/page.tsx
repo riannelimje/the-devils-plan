@@ -1,7 +1,6 @@
 import Header from '@/components/header'
-import { Brain, Gamepad2, Users, Trophy, Target, Zap } from 'lucide-react'
+import { Gamepad2} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 
 export default function About() {
@@ -16,9 +15,9 @@ export default function About() {
             <div className="text-center">
                 <h2 className="text-3xl font-bold mb-4">About</h2>
                 <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-6">
-                    This is inspired by The Devil&apos;s Plan - pls don't sue me. 
+                    This is inspired by The Devil&apos;s Plan - pls don&apos;t sue me. 
                     <br />
-                    As a developer and puzzle enthusiast, I wanted to recreate the intellectual games so that everyone can enjoy them!
+                    As a developer and puzzle enthusiast, I wanted to recreate the intellectual games so that everyone can play them!
                 </p> 
                 <Link href="/">
                     <Button className="bg-red-600 hover:bg-red-700 text-lg px-8 py-3">
