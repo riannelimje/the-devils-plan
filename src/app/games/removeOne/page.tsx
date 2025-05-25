@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Users, Clock, Trophy, Target } from "lucide-react"
+import { ArrowLeft, Users, Clock, Wifi, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,249 +10,85 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import Header from "@/components/header"
-
-interface Player {
-  id: number
-  name: string
-  deck: number[]
-  holdingBox: number[]
-  tempUnavailable: number[]
-  points: number
-  victoryTokens: number
-  isEliminated: boolean
-  selectedCards: [number, number] | null
-  finalChoice: "left" | "right" | null
-  finalCard: number | null
-}
-
-interface GameState {
-  players: Player[]
-  currentRound: number
-  totalRounds: number
-  survivalRounds: number[]
-  gamePhase: "setup" | "cardSelection" | "finalChoice" | "reveal" | "roundEnd" | "survival" | "gameOver"
-  roundWinner: number | null
-  eliminatedPlayer: number | null
-  gameStarted: boolean
-}
-
-const INITIAL_DECK = [1, 2, 3, 4, 5, 6, 7, 8]
+import { useSupabaseGame } from "@/hooks/useSupabaseGame"
 
 export default function RemoveOneGame() {
-  const [gameState, setGameState] = useState<GameState>({
-    players: [],
-    currentRound: 1,
-    totalRounds: 18,
-    survivalRounds: [3, 6, 9, 12, 18],
-    gamePhase: "setup",
-    roundWinner: null,
-    eliminatedPlayer: null,
-    gameStarted: false,
-  })
+  const {
+    room,
+    players,
+    currentPlayerId,
+    isConnected,
+    error,
+    createRoom,
+    joinRoom,
+    startGame,
+    selectCard,
+    makeFinalChoice,
+    continueGame,
+  } = useSupabaseGame()
 
-  const [setupForm, setSetupForm] = useState({
-    numPlayers: 7,
+  const [playerName, setPlayerName] = useState("")
+  const [roomCodeInput, setRoomCodeInput] = useState("")
+  const [gameSettings, setGameSettings] = useState({
     totalRounds: 18,
     survivalRounds: "3,6,9,12,18",
+    maxPlayers: 8,
   })
 
-  // Initialize players
-  const initializePlayers = () => {
-    const players: Player[] = []
-    for (let i = 0; i < setupForm.numPlayers; i++) {
-      players.push({
-        id: i,
-        name: `Player ${i + 1}`,
-        deck: [...INITIAL_DECK],
-        holdingBox: [],
-        tempUnavailable: [],
-        points: 0,
-        victoryTokens: 0,
-        isEliminated: false,
-        selectedCards: null,
-        finalChoice: null,
-        finalCard: null,
-      })
-    }
+  // Get current player
+  const currentPlayer = players.find((p) => p.id === currentPlayerId)
+  const isHost = currentPlayer?.is_host || false
 
-    const survivalRounds = setupForm.survivalRounds
-      .split(",")
-      .map((r) => Number.parseInt(r.trim()))
-      .filter((r) => !isNaN(r))
-
-    setGameState({
-      ...gameState,
-      players,
-      totalRounds: setupForm.totalRounds,
-      survivalRounds,
-      gameStarted: true,
-      gamePhase: "cardSelection",
-    })
+  // Get available cards for current player
+  const getAvailableCards = (player: any) => {
+    if (!player?.player_data) return []
+    const { deck, holdingBox, tempUnavailable } = player.player_data
+    return deck.filter((card: number) => !holdingBox.includes(card) && !tempUnavailable.includes(card))
   }
 
-  // Get available cards for a player
-  const getAvailableCards = (player: Player) => {
-    return player.deck.filter((card) => !player.holdingBox.includes(card) && !player.tempUnavailable.includes(card))
+  // Handle create room
+  const handleCreateRoom = async () => {
+    if (!playerName.trim()) return
+
+    try {
+      const survivalRounds = gameSettings.survivalRounds
+        .split(",")
+        .map((r) => Number.parseInt(r.trim()))
+        .filter((r) => !isNaN(r))
+
+      await createRoom(playerName.trim(), {
+        ...gameSettings,
+        survivalRounds,
+      })
+    } catch (err) {
+      console.error("Failed to create room:", err)
+    }
+  }
+
+  // Handle join room
+  const handleJoinRoom = async () => {
+    if (!playerName.trim() || !roomCodeInput.trim()) return
+
+    try {
+      await joinRoom(roomCodeInput.trim().toUpperCase(), playerName.trim())
+    } catch (err) {
+      console.error("Failed to join room:", err)
+    }
   }
 
   // Handle card selection
-  const selectCards = (playerId: number, cards: [number, number]) => {
-    setGameState((prev) => ({
-      ...prev,
-      players: prev.players.map((p) => (p.id === playerId ? { ...p, selectedCards: cards } : p)),
-    }))
+  const handleCardSelection = (card: number) => {
+    if (!currentPlayer || currentPlayer.player_data.isEliminated) return
+    selectCard(card)
   }
 
-  // Handle final choice (left or right)
-  const makeFinalChoice = (playerId: number, choice: "left" | "right") => {
-    setGameState((prev) => ({
-      ...prev,
-      players: prev.players.map((p) => {
-        if (p.id === playerId && p.selectedCards) {
-          const finalCard = choice === "left" ? p.selectedCards[0] : p.selectedCards[1]
-          return { ...p, finalChoice: choice, finalCard }
-        }
-        return p
-      }),
-    }))
+  // Handle final choice
+  const handleFinalChoice = (choice: "left" | "right") => {
+    makeFinalChoice(choice)
   }
 
-  // Check if all active players have made their choices
-  const allPlayersReady = (phase: string) => {
-    const activePlayers = gameState.players.filter((p) => !p.isEliminated)
-
-    if (phase === "cardSelection") {
-      return activePlayers.every((p) => p.selectedCards !== null)
-    }
-
-    if (phase === "finalChoice") {
-      return activePlayers.every((p) => p.finalChoice !== null)
-    }
-
-    return false
-  }
-
-  // Process round results
-  const processRound = () => {
-    const activePlayers = gameState.players.filter((p) => !p.isEliminated)
-    const submissions = activePlayers.map((p) => ({
-      playerId: p.id,
-      card: p.finalCard!,
-    }))
-
-    // Find lowest unique number
-    const cardCounts = submissions.reduce(
-      (acc, sub) => {
-        acc[sub.card] = (acc[sub.card] || 0) + 1
-        return acc
-      },
-      {} as Record<number, number>,
-    )
-
-    const uniqueCards = submissions.filter((sub) => cardCounts[sub.card] === 1)
-    const lowestUnique = uniqueCards.length > 0 ? Math.min(...uniqueCards.map((sub) => sub.card)) : null
-
-    const winner = lowestUnique ? submissions.find((sub) => sub.card === lowestUnique)?.playerId : null
-
-    // Update game state
-    setGameState((prev) => ({
-      ...prev,
-      players: prev.players.map((p) => {
-        if (p.isEliminated) return p
-
-        const isWinner = p.id === winner
-        const usedCard = p.finalCard!
-        const unusedCard = p.selectedCards!.find((card) => card !== usedCard)!
-
-        return {
-          ...p,
-          points: p.points + (isWinner ? usedCard : 0),
-          victoryTokens: p.victoryTokens + (isWinner ? 1 : 0),
-          holdingBox: isWinner ? [...p.holdingBox, usedCard] : p.holdingBox,
-          tempUnavailable: !isWinner ? [unusedCard] : [],
-          selectedCards: null,
-          finalChoice: null,
-          finalCard: null,
-        }
-      }),
-      roundWinner: winner ?? null,
-      gamePhase: "roundEnd",
-    }))
-  }
-
-  // Move to next round
-  const nextRound = () => {
-    const isSurvivalRound = gameState.survivalRounds.includes(gameState.currentRound)
-
-    if (isSurvivalRound) {
-      setGameState((prev) => ({ ...prev, gamePhase: "survival" }))
-    } else {
-      // Return temp unavailable cards and move to next round
-      setGameState((prev) => ({
-        ...prev,
-        currentRound: prev.currentRound + 1,
-        players: prev.players.map((p) => ({
-          ...p,
-          tempUnavailable: [],
-        })),
-        gamePhase: "cardSelection",
-        roundWinner: null,
-      }))
-    }
-  }
-
-  // Handle survival round
-  const processSurvival = () => {
-    const activePlayers = gameState.players.filter((p) => !p.isEliminated)
-
-    // Add victory token bonus
-    const playersWithBonus = activePlayers.map((p) => ({
-      ...p,
-      totalScore: p.points + p.victoryTokens,
-    }))
-
-    // Find player with lowest score
-    const lowestScore = Math.min(...playersWithBonus.map((p) => p.totalScore))
-    const eliminatedPlayer = playersWithBonus.find((p) => p.totalScore === lowestScore)
-
-    // Check for deck reset rounds
-    const shouldResetDeck = [6, 12].includes(gameState.currentRound)
-
-    setGameState((prev) => ({
-      ...prev,
-      players: prev.players.map((p) => {
-        const shouldEliminate = p.id === eliminatedPlayer?.id
-        return {
-          ...p,
-          isEliminated: p.isEliminated || shouldEliminate,
-          deck: shouldResetDeck && !shouldEliminate ? [...INITIAL_DECK] : p.deck,
-          holdingBox: shouldResetDeck && !shouldEliminate ? [] : p.holdingBox,
-          tempUnavailable: [],
-        }
-      }),
-      eliminatedPlayer: eliminatedPlayer?.id || null,
-      currentRound: prev.currentRound + 1,
-      gamePhase: gameState.currentRound >= gameState.totalRounds ? "gameOver" : "cardSelection",
-    }))
-  }
-
-  // Auto-advance phases when all players are ready
-  useEffect(() => {
-    if (gameState.gamePhase === "cardSelection" && allPlayersReady("cardSelection")) {
-      setTimeout(() => {
-        setGameState((prev) => ({ ...prev, gamePhase: "finalChoice" }))
-      }, 1000)
-    }
-
-    if (gameState.gamePhase === "finalChoice" && allPlayersReady("finalChoice")) {
-      setTimeout(() => {
-        setGameState((prev) => ({ ...prev, gamePhase: "reveal" }))
-        processRound()
-      }, 1000)
-    }
-  }, [gameState.gamePhase, gameState.players])
-
-  if (!gameState.gameStarted) {
+  // Lobby/Connection Screen
+  if (!room?.game_state.gameStarted) {
     return (
       <div className="flex flex-col min-h-screen bg-black text-white">
         <Header />
@@ -267,303 +103,320 @@ export default function RemoveOneGame() {
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold mb-4">
-                <span className="text-red-500">Remove One</span>
+                <span className="text-red-500">Remove One</span> - Multiplayer
               </h1>
               <p className="text-gray-400">
                 A strategic elimination game where survival depends on playing the lowest unique card
               </p>
+
+              {/* Connection Status */}
+              <div className="flex items-center justify-center gap-2 mt-4">
+                {isConnected ? (
+                  <>
+                    <Wifi className="w-4 h-4 text-green-500" />
+                    <span className="text-green-500">Connected to Supabase</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4 text-red-500" />
+                    <span className="text-red-500">Disconnected</span>
+                  </>
+                )}
+              </div>
             </div>
 
-            <Tabs defaultValue="setup" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-gray-900">
-                <TabsTrigger value="setup" className="text-white data-[state=active]:text-purple-500">Game Setup</TabsTrigger>
-                <TabsTrigger value="rules" className="text-white data-[state=active]:text-purple-500">Rules</TabsTrigger>
-              </TabsList>
+            {error && (
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6">
+                <p className="text-red-200">{error}</p>
+              </div>
+            )}
 
-              <TabsContent value="setup" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="numPlayers">Number of Players</Label>
-                    <Input
-                      id="numPlayers"
-                      type="number"
-                      min="3"
-                      max="12"
-                      value={setupForm.numPlayers}
-                      onChange={(e) =>
-                        setSetupForm((prev) => ({
-                          ...prev,
-                          numPlayers: Number.parseInt(e.target.value) || 3,
-                        }))
-                      }
-                      className="bg-gray-800 border-gray-700"
-                    />
+            {room ? (
+              // In Room - Lobby
+              <Card className="bg-gray-900 border-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    Room: {room.room_code}
+                    {isHost && <Badge className="bg-yellow-600">Host</Badge>}
+                  </CardTitle>
+                  <CardDescription>Share this room code with other players</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-bold mb-2">
+                        Players ({players.length}/{room.game_settings.maxPlayers})
+                      </h3>
+                      <div className="space-y-2">
+                        {players.map((player) => (
+                          <div key={player.id} className="flex items-center justify-between p-2 bg-gray-800 rounded">
+                            <span>
+                              {player.player_name}
+                              {player.id === currentPlayerId && " (You)"}
+                            </span>
+                            <div className="flex gap-2">
+                              {player.is_host && <Badge variant="outline">Host</Badge>}
+                              {player.is_connected && <Badge className="bg-green-600">Online</Badge>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {isHost && (
+                      <Button
+                        onClick={startGame}
+                        className="w-full bg-red-600 hover:bg-red-700"
+                        disabled={players.length < 3}
+                      >
+                        Start Game ({players.length} players)
+                      </Button>
+                    )}
+
+                    {!isHost && <div className="text-center text-gray-400">Waiting for host to start the game...</div>}
                   </div>
+                </CardContent>
+              </Card>
+            ) : (
+              // Join/Create Room
+              <Tabs defaultValue="join" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-gray-900">
+                  <TabsTrigger value="join">Join Game</TabsTrigger>
+                  <TabsTrigger value="create">Create Game</TabsTrigger>
+                </TabsList>
 
-                  <div>
-                    <Label htmlFor="totalRounds">Total Rounds</Label>
-                    <Input
-                      id="totalRounds"
-                      type="number"
-                      min="5"
-                      max="30"
-                      value={setupForm.totalRounds}
-                      onChange={(e) =>
-                        setSetupForm((prev) => ({
-                          ...prev,
-                          totalRounds: Number.parseInt(e.target.value) || 18,
-                        }))
-                      }
-                      className="bg-gray-800 border-gray-700"
-                    />
+                <TabsContent value="join" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="playerName">Your Name</Label>
+                      <Input
+                        id="playerName"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter your name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="roomCode">Room Code</Label>
+                      <Input
+                        id="roomCode"
+                        value={roomCodeInput}
+                        onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter room code"
+                      />
+                    </div>
+                    <Button onClick={handleJoinRoom} className="w-full bg-blue-600 hover:bg-blue-700">
+                      Join Game
+                    </Button>
                   </div>
+                </TabsContent>
 
-                  <div>
-                    <Label htmlFor="survivalRounds">Survival Rounds (comma-separated)</Label>
-                    <Input
-                      id="survivalRounds"
-                      value={setupForm.survivalRounds}
-                      onChange={(e) =>
-                        setSetupForm((prev) => ({
-                          ...prev,
-                          survivalRounds: e.target.value,
-                        }))
-                      }
-                      className="bg-gray-800 border-gray-700"
-                      placeholder="3,6,9,12,18"
-                    />
+                <TabsContent value="create" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="hostName">Your Name</Label>
+                      <Input
+                        id="hostName"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter your name"
+                      />
+                    </div>
+                    <div>
+                      <Label>Max Players</Label>
+                      <Input
+                        type="number"
+                        min="3"
+                        max="12"
+                        value={gameSettings.maxPlayers}
+                        onChange={(e) =>
+                          setGameSettings((prev) => ({
+                            ...prev,
+                            maxPlayers: Number.parseInt(e.target.value) || 8,
+                          }))
+                        }
+                        className="bg-gray-800 border-gray-700"
+                      />
+                    </div>
+                    <Button onClick={handleCreateRoom} className="w-full bg-red-600 hover:bg-red-700">
+                      Create Game
+                    </Button>
                   </div>
-
-                  <Button onClick={initializePlayers} className="w-full bg-red-600 hover:bg-red-700">
-                    Start Game
-                  </Button>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="rules" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
-                <div className="space-y-4 text-gray-300">
-                  <h3 className="text-xl font-bold text-white">Game Overview</h3>
-                  <p>
-                    "Remove One" is a high-stakes elimination game where players strategically play numbered cards to
-                    survive elimination rounds.
-                  </p>
-
-                  <h4 className="font-bold text-white">Setup</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Each player receives cards numbered 1 through 8</li>
-                    <li>Game consists of multiple rounds with designated survival rounds</li>
-                    <li>Players select two cards each round, then choose one as their final submission</li>
-                  </ul>
-
-                  <h4 className="font-bold text-white">Gameplay</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Players simultaneously select two cards from their available deck</li>
-                    <li>Players secretly choose left or right card as their final submission</li>
-                    <li>All final cards are revealed simultaneously</li>
-                    <li>Player with the lowest unique number wins the round</li>
-                    <li>Winner gets points equal to their card value plus a victory token</li>
-                    <li>Used winning card goes to holding box (unavailable next round)</li>
-                    <li>Unused card is temporarily unavailable but returns after one round</li>
-                  </ul>
-
-                  <h4 className="font-bold text-white">Elimination</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>At survival rounds, points are tallied (including victory token bonuses)</li>
-                    <li>Player with lowest total score is eliminated</li>
-                    <li>Decks reset after certain rounds (typically rounds 6 and 12)</li>
-                    <li>Game continues until final elimination round</li>
-                  </ul>
-                </div>
-              </TabsContent>
-            </Tabs>
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
         </main>
       </div>
     )
   }
 
-  // Game interface
-  const activePlayers = gameState.players.filter((p) => !p.isEliminated)
-  const currentPlayer = activePlayers[0] // For demo, we'll control Player 1
+  // Game Interface
+  const activePlayers = players.filter((p) => !p.player_data.isEliminated)
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-12">
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between items-center">
           <Link href="/" className="text-gray-400 hover:text-white flex items-center">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Games
           </Link>
+          <div className="flex items-center gap-2 text-sm">
+            <span>Room: {room.room_code}</span>
+            <Wifi className="w-4 h-4 text-green-500" />
+          </div>
         </div>
 
         {/* Game Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Remove One - Round {gameState.currentRound}</h1>
+          <h1 className="text-3xl font-bold mb-2">Remove One - Round {room.game_state.currentRound}</h1>
           <div className="flex justify-center gap-4 text-sm">
             <Badge variant="outline" className="border-blue-500 text-blue-400">
               <Clock className="w-4 h-4 mr-1" />
-              Round {gameState.currentRound}/{gameState.totalRounds}
+              Round {room.game_state.currentRound}/{room.game_settings.totalRounds}
             </Badge>
             <Badge variant="outline" className="border-green-500 text-green-400">
               <Users className="w-4 h-4 mr-1" />
               {activePlayers.length} Players Active
             </Badge>
-            {gameState.survivalRounds.includes(gameState.currentRound) && (
-              <Badge variant="outline" className="border-red-500 text-red-400">
-                <Target className="w-4 h-4 mr-1" />
-                Survival Round
-              </Badge>
-            )}
           </div>
         </div>
 
-        {/* Game Phase Display */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Player Status */}
-          <div className="lg:col-span-2">
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle>Player Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {gameState.players.map((player) => (
-                    <div
-                      key={player.id}
-                      className={`p-4 rounded-lg border ${
-                        player.isEliminated ? "bg-red-950/30 border-red-800" : "bg-gray-800 border-gray-700"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-bold">{player.name}</h3>
-                        {player.isEliminated && <Badge variant="destructive">Eliminated</Badge>}
-                      </div>
-                      <div className="text-sm space-y-1">
-                        <div>Points: {player.points}</div>
-                        <div>Victory Tokens: {player.victoryTokens}</div>
-                        <div>Available Cards: {getAvailableCards(player).length}</div>
-                        {gameState.gamePhase === "reveal" && player.finalCard && (
-                          <div className="text-purple-400">Played: {player.finalCard}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Game Controls */}
-          <div>
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle>Game Controls</CardTitle>
-                <CardDescription>
-                  {gameState.gamePhase === "cardSelection" && "Select two cards"}
-                  {gameState.gamePhase === "finalChoice" && "Choose left or right card"}
-                  {gameState.gamePhase === "reveal" && "Round results"}
-                  {gameState.gamePhase === "roundEnd" && "Round complete"}
-                  {gameState.gamePhase === "survival" && "Survival round!"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {gameState.gamePhase === "cardSelection" && currentPlayer && (
+        {/* Game Controls */}
+        <div className="max-w-4xl mx-auto">
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle>Game Controls</CardTitle>
+              <CardDescription className="text-gray-300">
+                {room.game_state.gamePhase === "cardSelection" && "Select two cards"}
+                {room.game_state.gamePhase === "finalChoice" && "Choose left or right card"}
+                {room.game_state.gamePhase === "reveal" && "Round results"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {room.game_state.gamePhase === "cardSelection" &&
+                currentPlayer &&
+                !currentPlayer.player_data.isEliminated && (
                   <div>
-                    <p className="mb-4">Available cards for {currentPlayer.name}:</p>
-                    <div className="grid grid-cols-4 gap-2 mb-4">
-                      {getAvailableCards(currentPlayer).map((card) => (
-                        <button
-                          key={card}
-                          className="p-2 bg-gray-700 hover:bg-gray-600 rounded border"
-                          onClick={() => {
-                            // For demo, auto-select two cards
-                            const available = getAvailableCards(currentPlayer)
-                            if (available.length >= 2) {
-                              selectCards(currentPlayer.id, [available[0], available[1]])
+                    <p className="mb-4 text-white">Select exactly 2 cards:</p>
+                    <div className="grid grid-cols-4 gap-2 mb-4 max-w-md">
+                      {getAvailableCards(currentPlayer).map((card: number) => {
+                        const isSelected = currentPlayer.player_data.selectedCards?.includes(card) || false
+                        return (
+                          <button
+                            key={card}
+                            className={`p-3 rounded border-2 transition-all text-white font-bold ${
+                              isSelected
+                                ? "bg-red-600 border-red-400 shadow-lg transform scale-105"
+                                : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
+                            }`}
+                            onClick={() => handleCardSelection(card)}
+                            disabled={
+                              !isSelected &&
+                              (currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0) >= 2
                             }
-                          }}
-                        >
-                          {card}
-                        </button>
-                      ))}
+                          >
+                            {card}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="text-sm text-gray-300">
+                      Selected: {currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0}/2 cards
                     </div>
                   </div>
                 )}
 
-                {gameState.gamePhase === "finalChoice" && currentPlayer?.selectedCards && (
+              {room.game_state.gamePhase === "finalChoice" &&
+                currentPlayer?.player_data.selectedCards &&
+                !currentPlayer.player_data.isEliminated && (
                   <div>
-                    <p className="mb-4">Choose your final card:</p>
-                    <div className="flex gap-4">
+                    <p className="mb-4 text-white">Choose your final card:</p>
+                    <div className="flex gap-4 max-w-md">
                       <Button
-                        onClick={() => makeFinalChoice(currentPlayer.id, "left")}
-                        className="flex-1"
-                        variant={currentPlayer.finalChoice === "left" ? "default" : "outline"}
+                        onClick={() => handleFinalChoice("left")}
+                        className={`flex-1 text-white font-bold ${
+                          currentPlayer.player_data.finalChoice === "left"
+                            ? "bg-red-600 hover:bg-red-700"
+                            : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
+                        }`}
+                        variant={currentPlayer.player_data.finalChoice === "left" ? "default" : "outline"}
                       >
-                        Left: {currentPlayer.selectedCards[0]}
+                        Left: {currentPlayer.player_data.selectedCards[0]}
                       </Button>
                       <Button
-                        onClick={() => makeFinalChoice(currentPlayer.id, "right")}
-                        className="flex-1"
-                        variant={currentPlayer.finalChoice === "right" ? "default" : "outline"}
+                        onClick={() => handleFinalChoice("right")}
+                        className={`flex-1 text-white font-bold ${
+                          currentPlayer.player_data.finalChoice === "right"
+                            ? "bg-red-600 hover:bg-red-700"
+                            : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
+                        }`}
+                        variant={currentPlayer.player_data.finalChoice === "right" ? "default" : "outline"}
                       >
-                        Right: {currentPlayer.selectedCards[1]}
+                        Right: {currentPlayer.player_data.selectedCards[1]}
                       </Button>
                     </div>
                   </div>
                 )}
 
-                {gameState.gamePhase === "roundEnd" && (
-                  <div className="text-center">
-                    {gameState.roundWinner !== null ? (
-                      <div className="mb-4">
-                        <Trophy className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                        <p>Player {gameState.roundWinner + 1} wins this round!</p>
+              {isHost && (room.game_state.gamePhase === "roundEnd" || room.game_state.gamePhase === "survival") && (
+                <div className="text-center">
+                  <Button onClick={continueGame} className="bg-blue-600 hover:bg-blue-700">
+                    Continue Game
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Players Status */}
+          <Card className="bg-gray-900 border-gray-800 mt-6">
+            <CardHeader>
+              <CardTitle>Players</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {players.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`p-4 rounded-lg border ${
+                      player.player_data.isEliminated
+                        ? "bg-red-950/30 border-red-800"
+                        : player.id === currentPlayerId
+                          ? "bg-blue-950/30 border-blue-600"
+                          : "bg-gray-800 border-gray-700"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-bold text-white">
+                        {player.player_name} {player.id === currentPlayerId && "(You)"}
+                      </h3>
+                      <div className="flex gap-1">
+                        {player.player_data.isEliminated && <Badge variant="destructive">Eliminated</Badge>}
+                        {player.is_host && <Badge variant="outline">Host</Badge>}
                       </div>
-                    ) : (
-                      <p className="mb-4">No winner this round (no unique lowest card)</p>
-                    )}
-                    <Button onClick={nextRound} className="bg-blue-600 hover:bg-blue-700">
-                      Continue
-                    </Button>
-                  </div>
-                )}
-
-                {gameState.gamePhase === "survival" && (
-                  <div className="text-center">
-                    <Target className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                    <p className="mb-4">Survival Round!</p>
-                    {gameState.eliminatedPlayer !== null && (
-                      <p className="text-red-400 mb-4">Player {gameState.eliminatedPlayer + 1} has been eliminated!</p>
-                    )}
-                    <Button onClick={processSurvival} className="bg-red-600 hover:bg-red-700">
-                      Continue
-                    </Button>
-                  </div>
-                )}
-
-                {gameState.gamePhase === "gameOver" && (
-                  <div className="text-center">
-                    <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold mb-4">Game Over!</h2>
-                    <p>Final standings:</p>
-                    <div className="mt-4">
-                      {gameState.players
-                        .sort((a, b) => b.points + b.victoryTokens - (a.points + a.victoryTokens))
-                        .map((player, index) => (
-                          <div key={player.id} className="flex justify-between py-1">
-                            <span>
-                              #{index + 1} {player.name}
-                            </span>
-                            <span>{player.points + player.victoryTokens} pts</span>
-                          </div>
-                        ))}
+                    </div>
+                    <div className="text-sm space-y-1 text-gray-300">
+                      <div className="text-white">
+                        Points: <span className="text-green-400">{player.player_data.points}</span>
+                      </div>
+                      <div className="text-white">
+                        Victory Tokens: <span className="text-yellow-400">{player.player_data.victoryTokens}</span>
+                      </div>
+                      <div className="text-white">
+                        Available Cards: <span className="text-blue-400">{getAvailableCards(player).length}</span>
+                      </div>
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
