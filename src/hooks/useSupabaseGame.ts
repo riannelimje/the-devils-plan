@@ -29,7 +29,10 @@ export function useSupabaseGame() {
         .insert({
           room_code: roomCode,
           host_id: playerId,
-          game_settings: gameSettings,
+          game_settings: {
+            ...gameSettings,
+            minPlayers: gameSettings.minPlayers || 2, // Add this
+          },
           game_state: {
             currentRound: 1,
             gamePhase: "lobby",
@@ -171,15 +174,18 @@ export function useSupabaseGame() {
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
     if (!currentPlayer || currentPlayer.player_data.isEliminated) return
 
-    const currentSelected: number[] = currentPlayer.player_data.selectedCards || []
+    const currentSelected = currentPlayer.player_data.selectedCards || []
     let newSelected: number[] = []
 
-    if (currentSelected.includes(card)) {
+    // Fix: Handle the case where selectedCards might have -1 placeholder
+    const validSelected = currentSelected.filter((c) => c !== -1)
+
+    if (validSelected.includes(card)) {
       // Deselect card
-      newSelected = currentSelected.filter((c) => c !== card)
-    } else if (currentSelected.length < 2) {
+      newSelected = validSelected.filter((c) => c !== card)
+    } else if (validSelected.length < 2) {
       // Select card
-      newSelected = [...currentSelected, card]
+      newSelected = [...validSelected, card]
     } else {
       return // Can't select more than 2 cards
     }

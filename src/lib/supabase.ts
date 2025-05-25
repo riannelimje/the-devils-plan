@@ -14,6 +14,7 @@ export interface Room {
     totalRounds: number
     survivalRounds: number[]
     maxPlayers: number
+    minPlayers: number
   }
   game_state: {
     currentRound: number
