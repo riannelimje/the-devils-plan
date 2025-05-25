@@ -354,7 +354,12 @@ export default function RemoveOneGame() {
                           const isSelected = validSelected.includes(card)
                           const isLastCard = idx === arr.length - 1
                           // Only disable the last card from round 2 onwards
-                          const shouldDisableLastCard = isLastCard && room.game_state.currentRound >= 2
+                            // Disable last card except on rounds 7 and 13
+                            const shouldDisableLastCard =
+                            isLastCard &&
+                            room.game_state.currentRound >= 2 &&
+                            room.game_state.currentRound !== 7 &&
+                            room.game_state.currentRound !== 13
                           return (
                             <button
                               key={card}
@@ -633,9 +638,6 @@ export default function RemoveOneGame() {
                       </div>
                       <div className="text-white">
                         Available Cards: <span className="text-blue-400">{getAvailableCards(player).length}</span>
-                      </div>
-                      <div className="text-white">
-                        Frozen Cards: <span className="text-orange-400">{player.player_data.holdingBox.length}</span>
                       </div>
                     </div>
                   </div>
