@@ -125,20 +125,23 @@ export default function RemoveOneGame() {
                 <span className="text-red-500">Remove One</span> - Multiplayer
               </h1>
               <p className="text-gray-400">
-                A strategic card game where you accumulate points by playing the lowest unique card each round
+                Accumulate points by playing the lowest unique card each round!
               </p>
+              <Link href="/games/removeOne/rules" className="text-blue-400 hover:underline mt-2 inline-block">
+                View Game Rules
+              </Link>
 
               {/* Connection Status */}
               <div className="flex items-center justify-center gap-2 mt-4">
                 {isConnected ? (
                   <>
                     <Wifi className="w-4 h-4 text-green-500" />
-                    <span className="text-green-500">Connected to Supabase</span>
+                    <span className="text-green-500">Connected</span>
                   </>
                 ) : (
                   <>
                     <WifiOff className="w-4 h-4 text-red-500" />
-                    <span className="text-red-500">Disconnected</span>
+                    <span className="text-red-500">Disconnected - enter or create a game</span>
                   </>
                 )}
               </div>
