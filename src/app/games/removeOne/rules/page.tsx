@@ -82,6 +82,10 @@ export default function RemoveOneRules() {
                 <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
                 Game is played over <strong className="text-white">10 rounds</strong> (customisable)
               </li>
+              <li className="flex items-start gap-2">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
+                The card deck resets after <strong className="text-white">round 6 and round 12</strong>
+              </li>
             </ul>
           </div>
           

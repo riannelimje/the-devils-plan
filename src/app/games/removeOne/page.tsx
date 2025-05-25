@@ -271,8 +271,8 @@ export default function RemoveOneGame() {
                       <Label>Total Rounds</Label>
                       <Input
                         type="number"
-                        min="3"
-                        max="20"
+                        min="1"
+                        max="18"
                         value={gameSettings.totalRounds}
                         onChange={(e) =>
                           setGameSettings((prev) => ({
