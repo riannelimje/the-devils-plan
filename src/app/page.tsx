@@ -54,8 +54,8 @@ export default function Home() {
             />
             <GameCard
               title={<span className="text-red-500">Remove One</span>}
-              description="The objective is to strategically play numbered cards to survive a series of rounds, with survival determined at specific intervals"
-              players="7"
+              description="The player with the lowest unique number wins the round."
+              players="2-8"
               image="/images/game2.png"
               href="/games/removeOne"
             />
