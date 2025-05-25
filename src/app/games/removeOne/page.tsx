@@ -248,23 +248,24 @@ export default function RemoveOneGame() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Number of Players</Label>
-                        <Input
-                          type="number"
-                          min="2"
-                          max="8"
-                          value={gameSettings.minPlayers}
-                          onChange={(e) =>
-                            setGameSettings((prev) => ({
-                              ...prev,
-                              minPlayers: Number.parseInt(e.target.value) || 2,
-                            }))
-                          }
-                          className="bg-gray-800 border-gray-700"
-                        />
-                      </div>
+                    <div>
+                      <Label>Number of Players</Label>
+                      <select
+                        value={gameSettings.minPlayers}
+                        onChange={(e) =>
+                          setGameSettings((prev) => ({
+                            ...prev,
+                            minPlayers: Number(e.target.value),
+                          }))
+                        }
+                        className="bg-gray-800 border-gray-700 rounded px-3 py-2 w-full text-white"
+                      >
+                        {[2, 3, 4, 5, 6, 7, 8].map((num) => (
+                          <option key={num} value={num}>
+                            {num}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
