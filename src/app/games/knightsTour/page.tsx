@@ -134,7 +134,7 @@ export default function KnightsTourGame() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white">
+    <div className="flex flex-col min-h-screen bg-black text-white bg-white dark:bg-black text-black dark:text-white">
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-12">
@@ -144,9 +144,9 @@ export default function KnightsTourGame() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-8">
+        <div className="grid grid-cols-1 gap-8 ">
           <div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-6">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-6 bg-white dark:bg-black text-black dark:text-white">
               <div className="relative h-64 w-full flex items-center justify-center">
                 <Image
                 src="/images/game1.png"
@@ -159,10 +159,10 @@ export default function KnightsTourGame() {
             </div>
 
             <Tabs defaultValue="play" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-gray-900">
+              <TabsList className="grid w-full grid-cols-2 bg-gray-900 ">
                 <TabsTrigger 
                 value="play" 
-                className="text-white data-[state=active]:text-purple-500"
+                className="text-white data-[state=active]:text-purple-500 "
                 >
                 Play
                 </TabsTrigger>
@@ -173,7 +173,7 @@ export default function KnightsTourGame() {
                 Rules
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="play" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+              <TabsContent value="play" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6 bg-white dark:bg-black text-black dark:text-white">
                 <div className="text-center py-12">
                   <h3 className="text-2xl font-bold mb-4">The Knight&apos;s Tour</h3>
                   <p className="text-gray-400 mb-8">
@@ -195,7 +195,7 @@ export default function KnightsTourGame() {
                       </SelectContent>
                     </Select>
                     
-                    <div className="flex items-center justify-center w-full bg-gray-800 p-3 rounded-lg">
+                    <div className="flex items-center justify-center w-full bg-gray-800 p-3 rounded-lg bg-white dark:bg-black text-black dark:text-white">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center">
                           {blindMode ? <EyeOff className="w-5 h-5 text-purple-400" /> : <EyeIcon className="w-5 h-5 text-purple-400" />}
@@ -223,7 +223,7 @@ export default function KnightsTourGame() {
                     </div>
                   )}
 
-                  <div className="bg-gray-800 rounded-xl p-8 max-w-md mx-auto mb-8">
+                  <div className="bg-gray-800 rounded-xl p-8 max-w-md mx-auto mb-8 bg-white dark:bg-black text-black dark:text-white">
                     <div
                       className={`grid aspect-square gap-0 border border-gray-600`}
                       style={{
@@ -260,12 +260,12 @@ export default function KnightsTourGame() {
 
                   <div className="flex justify-center gap-4 mb-8">
                     <Button className="bg-red-600 hover:bg-red-700" onClick={() => resetGame(boardSize)}>Start New Game</Button>
-                    <Button variant="outline" className="border-gray-600 text-black hover:bg-[#7102BF] hover:text-white" onClick={() => resetGame(boardSize)}>Reset Board</Button>
+                    <Button variant="outline" className="border-gray-600 text-black hover:bg-[#7102BF] hover:text-white bg-white dark:bg-black text-black dark:text-white" onClick={() => resetGame(boardSize)}>Reset Board</Button>
                   </div>
 
-                  <div className="text-left max-w-md mx-auto bg-gray-800 p-4 rounded-lg">
+                  <div className="text-left max-w-md mx-auto bg-gray-800 p-4 rounded-lg bg-white dark:bg-black text-black dark:text-white">
                     <h4 className="font-bold mb-2">How to Play:</h4>
-                    <ol className="list-decimal pl-5 space-y-1 text-sm text-gray-300">
+                    <ol className="list-decimal pl-5 space-y-1 text-sm bg-white dark:bg-black text-black dark:text-white">
                       <li>Click on a square to move the knight</li>
                       <li>Knights move in an L-shape: 2 squares in one direction, then 1 square perpendicular</li>
                       <li>Visit all squares exactly once to complete the tour</li>
@@ -278,13 +278,13 @@ export default function KnightsTourGame() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="rules" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+              <TabsContent value="rules" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6 bg-white dark:bg-black text-black dark:text-white">
                 <h3 className="text-xl font-bold mb-4">The Knight&apos;s Tour Rules</h3>
-                <div className="space-y-4 text-gray-300">
+                <div className="space-y-4 bg-white dark:bg-black text-black dark:text-white">
                   <p>
                     Given an n × n chessboard with a Knight starting at the top-left corner (position (0, 0)). The task is to determine a valid Knight&apos;s Tour where the Knight visits each cell exactly once following the standard L-shaped moves of a Knight in chess.
                   </p>
-                  <h4 className="font-bold text-white">Basic Rules:</h4>
+                  <h4 className="font-bold bg-white dark:bg-black text-black dark:text-white">Basic Rules:</h4>
                   <ul className="list-disc pl-5 space-y-2">
                     <li>The goal is to move a knight to every square on the chessboard exactly once</li>
                     <li>The knight moves according to standard chess rules: in an L-shape pattern</li>
@@ -293,8 +293,8 @@ export default function KnightsTourGame() {
                     <li>The puzzle is complete when all squares have been visited exactly once</li>
                   </ul>
                   
-                  <div className="bg-gray-800 p-4 rounded-lg mt-6">
-                    <h4 className="font-bold text-white mb-2">Blind Mode Rules:</h4>
+                  <div className="p-4 rounded-lg mt-6 bg-white dark:bg-gray-800  text-black dark:text-white">
+                    <h4 className="font-bold bg-white dark:bg-gray-800 text-black dark:text-white mb-2">Blind Mode Rules:</h4>
                     <ul className="list-disc pl-5 space-y-2">
                       <li>Move numbers are not shown on the board</li>
                       <li>Making an invalid move (non L-shape or revisiting a square) ends the game immediately</li>
@@ -303,10 +303,12 @@ export default function KnightsTourGame() {
                     </ul>
                   </div>
                   
-                  <div className="bg-gray-800 p-4 rounded-lg mt-6">
-                    <h4 className="font-bold text-white mb-2">Historical Context:</h4>
+                  <div className="p-4 rounded-lg mt-6 bg-white dark:bg-gray-800 text-black dark:text-white">
+                    <h4 className="font-bold bg-white dark:bg-gray-800 text-black dark:text-white mb-2">Historical Context:</h4>
                     <p>
                       The Knight&apos;s Tour problem was first documented by mathematician Leonhard Euler in 1759. It has been studied extensively in mathematics and computer science as an example of a Hamiltonian path problem.
+                      <br />
+                      This was the hidden stage for the living area!
                     </p>
                   </div>
                 </div>

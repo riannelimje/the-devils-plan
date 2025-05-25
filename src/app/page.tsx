@@ -7,7 +7,7 @@ import GameCard from "@/components/gameCard"
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-black text-black dark:text-white">
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-12">

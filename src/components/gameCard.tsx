@@ -16,7 +16,7 @@ interface GameCardProps {
 
 export default function GameCard({ title, description, players, image, href }: GameCardProps) {
   return (
-    <Card className="bg-gray-900 border-gray-800 overflow-hidden hover:border-red-900 transition-all duration-300">
+    <Card className="bg-gray-900 border-gray-800 overflow-hidden hover:border-red-900 transition-all duration-300 bg-white dark:bg-black text-black dark:text-white">
         <div className="relative h-48 w-full">
         <Image
             src={image}
