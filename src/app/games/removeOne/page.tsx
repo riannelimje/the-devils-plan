@@ -345,11 +345,13 @@ export default function RemoveOneGame() {
                     <>
                       <p className="mb-4 text-white">Select exactly 2 cards:</p>
                       <div className="grid grid-cols-4 gap-2 mb-4 max-w-md">
-                        {getAvailableCards(currentPlayer).map((card: number) => {
+                        {getAvailableCards(currentPlayer).map((card: number, idx: number, arr: number[]) => {
                           const selectedCards = currentPlayer.player_data.selectedCards || []
                           const validSelected = selectedCards.filter((c) => c !== -1)
                           const isSelected = validSelected.includes(card)
-
+                          const isLastCard = idx === arr.length - 1
+                          // Only disable the last card from round 2 onwards
+                          const shouldDisableLastCard = isLastCard && room.game_state.currentRound >= 2
                           return (
                             <button
                               key={card}
@@ -357,9 +359,9 @@ export default function RemoveOneGame() {
                                 isSelected
                                   ? "bg-red-600 border-red-400 shadow-lg transform scale-105"
                                   : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
-                              }`}
+                              } ${shouldDisableLastCard ? "opacity-50 cursor-not-allowed" : ""}`}
                               onClick={() => handleCardSelection(card)}
-                              disabled={!isSelected && validSelected.length >= 2}
+                              disabled={shouldDisableLastCard || (!isSelected && validSelected.length >= 2)}
                             >
                               {card}
                             </button>
