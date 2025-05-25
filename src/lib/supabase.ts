@@ -43,6 +43,8 @@ export interface Player {
     finalChoice: "left" | "right" | null
     finalCard: number | null
     isReady: boolean
+    hasSubmittedCards: boolean
+    hasSubmittedFinalChoice: boolean
   }
   is_host: boolean
   is_connected: boolean

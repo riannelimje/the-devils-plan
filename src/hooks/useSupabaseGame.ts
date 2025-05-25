@@ -31,7 +31,7 @@ export function useSupabaseGame() {
           host_id: playerId,
           game_settings: {
             ...gameSettings,
-            minPlayers: gameSettings.minPlayers || 2, // Add this
+            minPlayers: gameSettings.minPlayers || 2,
           },
           game_state: {
             currentRound: 1,
@@ -64,6 +64,8 @@ export function useSupabaseGame() {
             finalChoice: null,
             finalCard: null,
             isReady: false,
+            hasSubmittedCards: false,
+            hasSubmittedFinalChoice: false,
           },
           is_host: true,
         })
@@ -124,6 +126,8 @@ export function useSupabaseGame() {
             finalChoice: null,
             finalCard: null,
             isReady: false,
+            hasSubmittedCards: false,
+            hasSubmittedFinalChoice: false,
           },
           is_host: false,
         })
@@ -172,7 +176,7 @@ export function useSupabaseGame() {
     if (!room || !currentPlayerId) return
 
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
-    if (!currentPlayer || currentPlayer.player_data.isEliminated) return
+    if (!currentPlayer || currentPlayer.player_data.isEliminated || currentPlayer.player_data.hasSubmittedCards) return
 
     const currentSelected = currentPlayer.player_data.selectedCards || []
     let newSelected: number[] = []
@@ -205,14 +209,80 @@ export function useSupabaseGame() {
           },
         })
         .eq("id", currentPlayerId)
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
 
-      // Log action for real-time updates
+  // Submit card selection
+  const submitCardSelection = async () => {
+    if (!room || !currentPlayerId) return
+
+    const currentPlayer = players.find((p) => p.id === currentPlayerId)
+    if (!currentPlayer?.player_data.selectedCards) return
+
+    const validSelected = currentPlayer.player_data.selectedCards.filter((c) => c !== -1)
+    if (validSelected.length !== 2) return
+
+    try {
+      await supabase
+        .from("players")
+        .update({
+          player_data: {
+            ...currentPlayer.player_data,
+            hasSubmittedCards: true,
+          },
+        })
+        .eq("id", currentPlayerId)
+
+      // Log action
       await supabase.from("game_actions").insert({
         room_id: room.id,
         player_id: currentPlayerId,
-        action_type: "CARD_SELECTED",
-        action_data: { card, selectedCards: newSelected },
+        action_type: "CARDS_SUBMITTED",
+        action_data: { selectedCards: validSelected },
       })
+
+      // Check if all players have submitted
+      const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+      const allSubmitted = activePlayers.every((p) => p.id === currentPlayerId || p.player_data.hasSubmittedCards)
+
+      if (allSubmitted) {
+        // Move to reveal phase
+        setTimeout(async () => {
+          await supabase
+            .from("rooms")
+            .update({
+              game_state: {
+                ...room.game_state,
+                gamePhase: "cardReveal",
+              },
+            })
+            .eq("id", room.id)
+        }, 1000)
+      }
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  // Continue from card reveal to final choice
+  const continueToFinalChoice = async () => {
+    if (!room || !currentPlayerId) return
+
+    const currentPlayer = players.find((p) => p.id === currentPlayerId)
+    if (!currentPlayer?.is_host) return
+
+    try {
+      await supabase
+        .from("rooms")
+        .update({
+          game_state: {
+            ...room.game_state,
+            gamePhase: "finalChoice",
+          },
+        })
+        .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
     }
@@ -223,7 +293,7 @@ export function useSupabaseGame() {
     if (!room || !currentPlayerId) return
 
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
-    if (!currentPlayer?.player_data.selectedCards) return
+    if (!currentPlayer?.player_data.selectedCards || currentPlayer.player_data.hasSubmittedFinalChoice) return
 
     const finalCard =
       choice === "left" ? currentPlayer.player_data.selectedCards[0] : currentPlayer.player_data.selectedCards[1]
@@ -239,14 +309,116 @@ export function useSupabaseGame() {
           },
         })
         .eq("id", currentPlayerId)
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  // Submit final choice
+  const submitFinalChoice = async () => {
+    if (!room || !currentPlayerId) return
+
+    const currentPlayer = players.find((p) => p.id === currentPlayerId)
+    if (!currentPlayer?.player_data.finalCard || currentPlayer.player_data.hasSubmittedFinalChoice) return
+
+    try {
+      await supabase
+        .from("players")
+        .update({
+          player_data: {
+            ...currentPlayer.player_data,
+            hasSubmittedFinalChoice: true,
+          },
+        })
+        .eq("id", currentPlayerId)
 
       // Log action
       await supabase.from("game_actions").insert({
         room_id: room.id,
         player_id: currentPlayerId,
-        action_type: "FINAL_CHOICE",
-        action_data: { choice, finalCard },
+        action_type: "FINAL_CHOICE_SUBMITTED",
+        action_data: {
+          choice: currentPlayer.player_data.finalChoice,
+          finalCard: currentPlayer.player_data.finalCard,
+        },
       })
+
+      // Check if all players have submitted final choices
+      const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+      const allSubmittedFinal = activePlayers.every(
+        (p) => p.id === currentPlayerId || p.player_data.hasSubmittedFinalChoice,
+      )
+
+      if (allSubmittedFinal) {
+        // Process round and move to results
+        setTimeout(async () => {
+          await processRoundResults()
+        }, 1000)
+      }
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  // Process round results
+  const processRoundResults = async () => {
+    if (!room || !currentPlayerId) return
+
+    const currentPlayer = players.find((p) => p.id === currentPlayerId)
+    if (!currentPlayer?.is_host) return
+
+    try {
+      const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+      const submissions = activePlayers.map((p) => ({
+        playerId: p.id,
+        playerName: p.player_name,
+        card: p.player_data.finalCard!,
+      }))
+
+      // Find lowest unique number
+      const cardCounts = submissions.reduce(
+        (acc, sub) => {
+          acc[sub.card] = (acc[sub.card] || 0) + 1
+          return acc
+        },
+        {} as Record<number, number>,
+      )
+
+      const uniqueCards = submissions.filter((sub) => cardCounts[sub.card] === 1)
+      const lowestUnique = uniqueCards.length > 0 ? Math.min(...uniqueCards.map((sub) => sub.card)) : null
+      const winner = lowestUnique ? submissions.find((sub) => sub.card === lowestUnique) : null
+
+      // Update players with results
+      for (const player of activePlayers) {
+        const isWinner = player.id === winner?.playerId
+        const usedCard = player.player_data.finalCard!
+        const unusedCard = player.player_data.selectedCards!.find((card) => card !== usedCard)!
+
+        await supabase
+          .from("players")
+          .update({
+            player_data: {
+              ...player.player_data,
+              points: player.player_data.points + (isWinner ? usedCard : 0),
+              victoryTokens: player.player_data.victoryTokens + (isWinner ? 1 : 0),
+              holdingBox: isWinner ? [...player.player_data.holdingBox, usedCard] : player.player_data.holdingBox,
+              tempUnavailable: !isWinner ? [unusedCard] : [],
+            },
+          })
+          .eq("id", player.id)
+      }
+
+      // Update room with round results
+      await supabase
+        .from("rooms")
+        .update({
+          game_state: {
+            ...room.game_state,
+            gamePhase: "roundResults",
+            roundWinner: winner?.playerId || null,
+          },
+        })
+        .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
     }
@@ -260,27 +432,54 @@ export function useSupabaseGame() {
     if (!currentPlayer?.is_host) return
 
     try {
-      // Process game logic here (you'll need to implement this)
-      // For now, just advance to next phase
-      let nextPhase = room.game_state.gamePhase
+      // Check if it's a survival round
+      const isSurvivalRound = room.game_settings.survivalRounds.includes(room.game_state.currentRound)
 
-      if (nextPhase === "roundEnd") {
-        nextPhase = "cardSelection"
-      } else if (nextPhase === "survival") {
-        nextPhase = "cardSelection"
+      if (isSurvivalRound) {
+        // Handle survival round logic here
+        await supabase
+          .from("rooms")
+          .update({
+            game_state: {
+              ...room.game_state,
+              gamePhase: "survival",
+            },
+          })
+          .eq("id", room.id)
+      } else {
+        // Reset for next round
+        const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+
+        for (const player of activePlayers) {
+          await supabase
+            .from("players")
+            .update({
+              player_data: {
+                ...player.player_data,
+                selectedCards: null,
+                finalChoice: null,
+                finalCard: null,
+                hasSubmittedCards: false,
+                hasSubmittedFinalChoice: false,
+                tempUnavailable: [], // Return temp unavailable cards
+              },
+            })
+            .eq("id", player.id)
+        }
+
+        // Move to next round
+        await supabase
+          .from("rooms")
+          .update({
+            game_state: {
+              ...room.game_state,
+              gamePhase: "cardSelection",
+              currentRound: room.game_state.currentRound + 1,
+              roundWinner: null,
+            },
+          })
+          .eq("id", room.id)
       }
-
-      await supabase
-        .from("rooms")
-        .update({
-          game_state: {
-            ...room.game_state,
-            gamePhase: nextPhase,
-            currentRound:
-              nextPhase === "cardSelection" ? room.game_state.currentRound + 1 : room.game_state.currentRound,
-          },
-        })
-        .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
     }
@@ -381,7 +580,10 @@ export function useSupabaseGame() {
     joinRoom,
     startGame,
     selectCard,
+    submitCardSelection,
+    continueToFinalChoice,
     makeFinalChoice,
+    submitFinalChoice,
     continueGame,
   }
 }

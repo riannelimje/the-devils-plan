@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Users, Clock, Wifi, WifiOff } from "lucide-react"
+import { ArrowLeft, Users, Clock, Wifi, WifiOff, Eye, CheckCircle, Trophy, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,7 +23,10 @@ export default function RemoveOneGame() {
     joinRoom,
     startGame,
     selectCard,
+    submitCardSelection,
+    continueToFinalChoice,
     makeFinalChoice,
+    submitFinalChoice,
     continueGame,
   } = useSupabaseGame()
 
@@ -58,7 +61,7 @@ export default function RemoveOneGame() {
 
       await createRoom(playerName.trim(), {
         ...gameSettings,
-        maxPlayers: gameSettings.minPlayers, // Use minPlayers as maxPlayers
+        maxPlayers: gameSettings.minPlayers,
         survivalRounds,
       })
     } catch (err) {
@@ -79,14 +82,37 @@ export default function RemoveOneGame() {
 
   // Handle card selection
   const handleCardSelection = (card: number) => {
-    if (!currentPlayer || currentPlayer.player_data.isEliminated) return
+    if (!currentPlayer || currentPlayer.player_data.isEliminated || currentPlayer.player_data.hasSubmittedCards) return
     selectCard(card)
+  }
+
+  // Handle submit cards
+  const handleSubmitCards = () => {
+    if (!currentPlayer?.player_data.selectedCards) return
+    const validSelected = currentPlayer.player_data.selectedCards.filter((c) => c !== -1)
+    if (validSelected.length !== 2) return
+    submitCardSelection()
   }
 
   // Handle final choice
   const handleFinalChoice = (choice: "left" | "right") => {
     makeFinalChoice(choice)
   }
+
+  // Handle submit final choice
+  const handleSubmitFinalChoice = () => {
+    if (!currentPlayer?.player_data.finalCard || currentPlayer.player_data.hasSubmittedFinalChoice) return
+    submitFinalChoice()
+  }
+
+  // Check if all players have submitted cards
+  const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+  const allPlayersSubmitted = activePlayers.length > 0 && activePlayers.every((p) => p.player_data.hasSubmittedCards)
+  const allPlayersSubmittedFinal =
+    activePlayers.length > 0 && activePlayers.every((p) => p.player_data.hasSubmittedFinalChoice)
+
+  // Get round winner
+  const roundWinner = room?.game_state.roundWinner ? players.find((p) => p.id === room.game_state.roundWinner) : null
 
   // Lobby/Connection Screen
   if (!room?.game_state.gameStarted) {
@@ -146,7 +172,7 @@ export default function RemoveOneGame() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="font-bold mb-2">
-                        Players ({players.length}/{gameSettings.minPlayers || room.game_settings.maxPlayers || 2})
+                        Players ({players.length}/{gameSettings.minPlayers || room.game_settings.minPlayers || 2})
                       </h3>
                       <div className="space-y-2">
                         {players.map((player) => (
@@ -168,9 +194,9 @@ export default function RemoveOneGame() {
                       <Button
                         onClick={startGame}
                         className="w-full bg-red-600 hover:bg-red-700"
-                        disabled={players.length < (room.game_settings.maxPlayers || 2)}
+                        disabled={players.length < (room.game_settings.minPlayers || 2)}
                       >
-                        Start Game ({players.length}/{room.game_settings.maxPlayers || 2} min players)
+                        Start Game ({players.length}/{room.game_settings.minPlayers || 2} min players)
                       </Button>
                     )}
 
@@ -227,7 +253,7 @@ export default function RemoveOneGame() {
                       />
                     </div>
 
-                    <div className="grid gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Number of Players</Label>
                         <Input
@@ -295,8 +321,6 @@ export default function RemoveOneGame() {
   }
 
   // Game Interface
-  const activePlayers = players.filter((p) => !p.player_data.isEliminated)
-
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
       <Header />
@@ -324,6 +348,12 @@ export default function RemoveOneGame() {
               <Users className="w-4 h-4 mr-1" />
               {activePlayers.length} Players Active
             </Badge>
+            {room.game_settings.survivalRounds.includes(room.game_state.currentRound) && (
+              <Badge variant="outline" className="border-red-500 text-red-400">
+                <Target className="w-4 h-4 mr-1" />
+                Survival Round
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -333,86 +363,253 @@ export default function RemoveOneGame() {
             <CardHeader>
               <CardTitle>Game Controls</CardTitle>
               <CardDescription className="text-gray-300">
-                {room.game_state.gamePhase === "cardSelection" && "Select two cards"}
-                {room.game_state.gamePhase === "finalChoice" && "Choose left or right card"}
-                {room.game_state.gamePhase === "reveal" && "Round results"}
+                {room.game_state.gamePhase === "cardSelection" && "Select two cards and submit"}
+                {room.game_state.gamePhase === "cardReveal" && "All players' card selections"}
+                {room.game_state.gamePhase === "finalChoice" && "Choose left or right card and submit"}
+                {room.game_state.gamePhase === "roundResults" && "Round results"}
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Card Selection Phase */}
               {room.game_state.gamePhase === "cardSelection" &&
                 currentPlayer &&
                 !currentPlayer.player_data.isEliminated && (
                   <div>
-                    <p className="mb-4 text-white">Select exactly 2 cards:</p>
-                    <div className="grid grid-cols-4 gap-2 mb-4 max-w-md">
-                      {getAvailableCards(currentPlayer).map((card: number) => {
-                        const selectedCards = currentPlayer.player_data.selectedCards || []
-                        const validSelected = selectedCards.filter((c) => c !== -1)
-                        const isSelected = validSelected.includes(card)
+                    {!currentPlayer.player_data.hasSubmittedCards ? (
+                      <>
+                        <p className="mb-4 text-white">Select exactly 2 cards:</p>
+                        <div className="grid grid-cols-4 gap-2 mb-4 max-w-md">
+                          {getAvailableCards(currentPlayer).map((card: number) => {
+                            const selectedCards = currentPlayer.player_data.selectedCards || []
+                            const validSelected = selectedCards.filter((c) => c !== -1)
+                            const isSelected = validSelected.includes(card)
 
-                        return (
-                          <button
-                            key={card}
-                            className={`p-3 rounded border-2 transition-all text-white font-bold ${
-                              isSelected
-                                ? "bg-red-600 border-red-400 shadow-lg transform scale-105"
-                                : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
-                            }`}
-                            onClick={() => handleCardSelection(card)}
-                            disabled={!isSelected && validSelected.length >= 2}
-                          >
-                            {card}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div className="text-sm text-gray-300">
-                      Selected: {currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0}/2 cards
-                      {currentPlayer.player_data.selectedCards && (
-                        <span className="ml-2 text-white">
-                          [{currentPlayer.player_data.selectedCards.filter((c) => c !== -1).join(", ")}]
-                        </span>
-                      )}
-                    </div>
+                            return (
+                              <button
+                                key={card}
+                                className={`p-3 rounded border-2 transition-all text-white font-bold ${
+                                  isSelected
+                                    ? "bg-red-600 border-red-400 shadow-lg transform scale-105"
+                                    : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
+                                }`}
+                                onClick={() => handleCardSelection(card)}
+                                disabled={!isSelected && validSelected.length >= 2}
+                              >
+                                {card}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div className="text-sm text-gray-300 mb-4">
+                          Selected: {currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0}/2
+                          cards
+                          {currentPlayer.player_data.selectedCards && (
+                            <span className="ml-2 text-white">
+                              [{currentPlayer.player_data.selectedCards.filter((c) => c !== -1).join(", ")}]
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          onClick={handleSubmitCards}
+                          className="bg-green-600 hover:bg-green-700"
+                          disabled={
+                            !currentPlayer.player_data.selectedCards ||
+                            currentPlayer.player_data.selectedCards.filter((c) => c !== -1).length !== 2
+                          }
+                        >
+                          Submit Cards
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                        <p className="text-green-400 font-bold mb-2">Cards Submitted!</p>
+                        <p className="text-gray-400">Waiting for other players...</p>
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-300">
+                            Your cards: [{currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).join(", ")}]
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
+              {/* Card Reveal Phase */}
+              {room.game_state.gamePhase === "cardReveal" && (
+                <div>
+                  <div className="flex items-center gap-2 mb-6">
+                    <Eye className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-xl font-bold">All Players' Card Selections</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {activePlayers.map((player) => (
+                      <div
+                        key={player.id}
+                        className={`p-4 rounded-lg border ${
+                          player.id === currentPlayerId
+                            ? "bg-blue-950/30 border-blue-600"
+                            : "bg-gray-800 border-gray-700"
+                        }`}
+                      >
+                        <h4 className="font-bold mb-2">
+                          {player.player_name} {player.id === currentPlayerId && "(You)"}
+                        </h4>
+                        <div className="flex gap-2">
+                          {player.player_data.selectedCards
+                            ?.filter((c) => c !== -1)
+                            .map((card, index) => (
+                              <div
+                                key={index}
+                                className="w-12 h-12 bg-red-600 border border-red-400 rounded flex items-center justify-center font-bold text-white"
+                              >
+                                {card}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {isHost && (
+                    <div className="text-center">
+                      <Button onClick={continueToFinalChoice} className="bg-blue-600 hover:bg-blue-700">
+                        Continue to Final Choice
+                      </Button>
+                    </div>
+                  )}
+                  {!isHost && <div className="text-center text-gray-400">Waiting for host to continue...</div>}
+                </div>
+              )}
+
+              {/* Final Choice Phase */}
               {room.game_state.gamePhase === "finalChoice" &&
                 currentPlayer?.player_data.selectedCards &&
                 !currentPlayer.player_data.isEliminated && (
                   <div>
-                    <p className="mb-4 text-white">Choose your final card:</p>
-                    <div className="flex gap-4 max-w-md">
-                      <Button
-                        onClick={() => handleFinalChoice("left")}
-                        className={`flex-1 text-white font-bold ${
-                          currentPlayer.player_data.finalChoice === "left"
-                            ? "bg-red-600 hover:bg-red-700"
-                            : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
-                        }`}
-                        variant={currentPlayer.player_data.finalChoice === "left" ? "default" : "outline"}
-                      >
-                        Left: {currentPlayer.player_data.selectedCards[0]}
-                      </Button>
-                      <Button
-                        onClick={() => handleFinalChoice("right")}
-                        className={`flex-1 text-white font-bold ${
-                          currentPlayer.player_data.finalChoice === "right"
-                            ? "bg-red-600 hover:bg-red-700"
-                            : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
-                        }`}
-                        variant={currentPlayer.player_data.finalChoice === "right" ? "default" : "outline"}
-                      >
-                        Right: {currentPlayer.player_data.selectedCards[1]}
-                      </Button>
-                    </div>
+                    {!currentPlayer.player_data.hasSubmittedFinalChoice ? (
+                      <>
+                        <p className="mb-4 text-white">Choose your final card:</p>
+                        <div className="flex gap-4 max-w-md mb-4">
+                          <Button
+                            onClick={() => handleFinalChoice("left")}
+                            className={`flex-1 text-white font-bold ${
+                              currentPlayer.player_data.finalChoice === "left"
+                                ? "bg-red-600 hover:bg-red-700"
+                                : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
+                            }`}
+                            variant={currentPlayer.player_data.finalChoice === "left" ? "default" : "outline"}
+                          >
+                            Left: {currentPlayer.player_data.selectedCards[0]}
+                          </Button>
+                          <Button
+                            onClick={() => handleFinalChoice("right")}
+                            className={`flex-1 text-white font-bold ${
+                              currentPlayer.player_data.finalChoice === "right"
+                                ? "bg-red-600 hover:bg-red-700"
+                                : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
+                            }`}
+                            variant={currentPlayer.player_data.finalChoice === "right" ? "default" : "outline"}
+                          >
+                            Right: {currentPlayer.player_data.selectedCards[1]}
+                          </Button>
+                        </div>
+                        <Button
+                          onClick={handleSubmitFinalChoice}
+                          className="bg-green-600 hover:bg-green-700"
+                          disabled={!currentPlayer.player_data.finalChoice}
+                        >
+                          Submit Final Choice
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                        <p className="text-green-400 font-bold mb-2">Final Choice Submitted!</p>
+                        <p className="text-gray-400">Waiting for other players...</p>
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-300">
+                            Your final card: {currentPlayer.player_data.finalCard}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-              {isHost && (room.game_state.gamePhase === "roundEnd" || room.game_state.gamePhase === "survival") && (
+              {/* Round Results Phase */}
+              {room.game_state.gamePhase === "roundResults" && (
+                <div>
+                  <div className="flex items-center gap-2 mb-6">
+                    <Trophy className="w-5 h-5 text-yellow-400" />
+                    <h3 className="text-xl font-bold">Round Results</h3>
+                  </div>
+
+                  {/* Show all final cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {activePlayers.map((player) => (
+                      <div
+                        key={player.id}
+                        className={`p-4 rounded-lg border ${
+                          player.id === room.game_state.roundWinner
+                            ? "bg-yellow-950/30 border-yellow-600"
+                            : player.id === currentPlayerId
+                              ? "bg-blue-950/30 border-blue-600"
+                              : "bg-gray-800 border-gray-700"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-bold">
+                            {player.player_name} {player.id === currentPlayerId && "(You)"}
+                          </h4>
+                          {player.id === room.game_state.roundWinner && (
+                            <Badge className="bg-yellow-600">Winner!</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-12 h-12 bg-red-600 border border-red-400 rounded flex items-center justify-center font-bold text-white">
+                            {player.player_data.finalCard}
+                          </div>
+                          {player.id === room.game_state.roundWinner && (
+                            <div className="text-sm text-yellow-400">
+                              +{player.player_data.finalCard} points, +1 victory token
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {roundWinner ? (
+                    <div className="text-center mb-6">
+                      <p className="text-lg font-bold text-yellow-400">
+                        🎉 {roundWinner.player_name} wins with the lowest unique card (
+                        {roundWinner.player_data.finalCard})!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center mb-6">
+                      <p className="text-lg font-bold text-gray-400">No winner this round - no unique lowest card!</p>
+                    </div>
+                  )}
+
+                  {isHost && (
+                    <div className="text-center">
+                      <Button onClick={continueGame} className="bg-blue-600 hover:bg-blue-700">
+                        Continue to Next Round
+                      </Button>
+                    </div>
+                  )}
+                  {!isHost && <div className="text-center text-gray-400">Waiting for host to continue...</div>}
+                </div>
+              )}
+
+              {/* Host Controls for other phases */}
+              {isHost && room.game_state.gamePhase === "survival" && (
                 <div className="text-center">
-                  <Button onClick={continueGame} className="bg-blue-600 hover:bg-blue-700">
-                    Continue Game
+                  <Target className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                  <p className="mb-4">Survival Round!</p>
+                  <Button onClick={continueGame} className="bg-red-600 hover:bg-red-700">
+                    Process Elimination
                   </Button>
                 </div>
               )}
@@ -444,6 +641,12 @@ export default function RemoveOneGame() {
                       <div className="flex gap-1">
                         {player.player_data.isEliminated && <Badge variant="destructive">Eliminated</Badge>}
                         {player.is_host && <Badge variant="outline">Host</Badge>}
+                        {room.game_state.gamePhase === "cardSelection" && player.player_data.hasSubmittedCards && (
+                          <Badge className="bg-green-600">Submitted</Badge>
+                        )}
+                        {room.game_state.gamePhase === "finalChoice" && player.player_data.hasSubmittedFinalChoice && (
+                          <Badge className="bg-green-600">Submitted</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="text-sm space-y-1 text-gray-300">
