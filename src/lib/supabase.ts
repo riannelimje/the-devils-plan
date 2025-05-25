@@ -12,7 +12,6 @@ export interface Room {
   host_id: string
   game_settings: {
     totalRounds: number
-    survivalRounds: number[]
     maxPlayers: number
     minPlayers: number
   }
@@ -20,7 +19,6 @@ export interface Room {
     currentRound: number
     gamePhase: string
     roundWinner: string | null
-    eliminatedPlayer: string | null
     gameStarted: boolean
   }
   is_active: boolean
@@ -35,14 +33,11 @@ export interface Player {
   player_data: {
     deck: number[]
     holdingBox: number[]
-    tempUnavailable: number[]
     points: number
     victoryTokens: number
-    isEliminated: boolean
     selectedCards: [number, number] | null
     finalChoice: "left" | "right" | null
     finalCard: number | null
-    isReady: boolean
     hasSubmittedCards: boolean
     hasSubmittedFinalChoice: boolean
   }

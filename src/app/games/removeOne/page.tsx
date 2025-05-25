@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Users, Clock, Wifi, WifiOff, Eye, CheckCircle, Trophy, Target } from "lucide-react"
+import { ArrowLeft, Users, Clock, Wifi, WifiOff, Eye, CheckCircle, Trophy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,17 +24,15 @@ export default function RemoveOneGame() {
     startGame,
     selectCard,
     submitCardSelection,
-    continueToFinalChoice,
     makeFinalChoice,
     submitFinalChoice,
-    continueGame,
+    continueToNextRound,
   } = useSupabaseGame()
 
   const [playerName, setPlayerName] = useState("")
   const [roomCodeInput, setRoomCodeInput] = useState("")
   const [gameSettings, setGameSettings] = useState({
-    totalRounds: 18,
-    survivalRounds: "3,6,9,12,18",
+    totalRounds: 10,
     minPlayers: 2,
   })
 
@@ -42,11 +40,11 @@ export default function RemoveOneGame() {
   const currentPlayer = players.find((p) => p.id === currentPlayerId)
   const isHost = currentPlayer?.is_host || false
 
-  // Get available cards for current player
+  // Get available cards for current player (deck minus holding box)
   const getAvailableCards = (player: any) => {
     if (!player?.player_data) return []
-    const { deck, holdingBox, tempUnavailable } = player.player_data
-    return deck.filter((card: number) => !holdingBox.includes(card) && !tempUnavailable.includes(card))
+    const { deck, holdingBox } = player.player_data
+    return deck.filter((card: number) => !holdingBox.includes(card))
   }
 
   // Handle create room
@@ -54,15 +52,9 @@ export default function RemoveOneGame() {
     if (!playerName.trim()) return
 
     try {
-      const survivalRounds = gameSettings.survivalRounds
-        .split(",")
-        .map((r) => Number.parseInt(r.trim()))
-        .filter((r) => !isNaN(r))
-
       await createRoom(playerName.trim(), {
         ...gameSettings,
         maxPlayers: gameSettings.minPlayers,
-        survivalRounds,
       })
     } catch (err) {
       console.error("Failed to create room:", err)
@@ -82,7 +74,7 @@ export default function RemoveOneGame() {
 
   // Handle card selection
   const handleCardSelection = (card: number) => {
-    if (!currentPlayer || currentPlayer.player_data.isEliminated || currentPlayer.player_data.hasSubmittedCards) return
+    if (!currentPlayer || currentPlayer.player_data.hasSubmittedCards) return
     selectCard(card)
   }
 
@@ -105,11 +97,11 @@ export default function RemoveOneGame() {
     submitFinalChoice()
   }
 
-  // Check if all players have submitted cards
-  const activePlayers = players.filter((p) => !p.player_data.isEliminated)
-  const allPlayersSubmitted = activePlayers.length > 0 && activePlayers.every((p) => p.player_data.hasSubmittedCards)
+  // Check if all players have submitted
+  const allPlayers = players.filter((p) => true) // No elimination
+  const allPlayersSubmittedCards = allPlayers.length > 0 && allPlayers.every((p) => p.player_data.hasSubmittedCards)
   const allPlayersSubmittedFinal =
-    activePlayers.length > 0 && activePlayers.every((p) => p.player_data.hasSubmittedFinalChoice)
+    allPlayers.length > 0 && allPlayers.every((p) => p.player_data.hasSubmittedFinalChoice)
 
   // Get round winner
   const roundWinner = room?.game_state.roundWinner ? players.find((p) => p.id === room.game_state.roundWinner) : null
@@ -133,7 +125,7 @@ export default function RemoveOneGame() {
                 <span className="text-red-500">Remove One</span> - Multiplayer
               </h1>
               <p className="text-gray-400">
-                A strategic elimination game where survival depends on playing the lowest unique card
+                A strategic card game where you accumulate points by playing the lowest unique card each round
               </p>
 
               {/* Connection Status */}
@@ -277,34 +269,16 @@ export default function RemoveOneGame() {
                       <Input
                         type="number"
                         min="5"
-                        max="30"
+                        max="20"
                         value={gameSettings.totalRounds}
                         onChange={(e) =>
                           setGameSettings((prev) => ({
                             ...prev,
-                            totalRounds: Number.parseInt(e.target.value) || 18,
+                            totalRounds: Number.parseInt(e.target.value) || 10,
                           }))
                         }
                         className="bg-gray-800 border-gray-700"
                       />
-                    </div>
-
-                    <div>
-                      <Label>Survival Rounds (comma-separated)</Label>
-                      <Input
-                        value={gameSettings.survivalRounds}
-                        onChange={(e) =>
-                          setGameSettings((prev) => ({
-                            ...prev,
-                            survivalRounds: e.target.value,
-                          }))
-                        }
-                        className="bg-gray-800 border-gray-700"
-                        placeholder="3,6,9,12,18"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">
-                        Enter round numbers where players get eliminated (e.g., 3,6,9,12,18)
-                      </p>
                     </div>
 
                     <Button onClick={handleCreateRoom} className="w-full bg-red-600 hover:bg-red-700">
@@ -346,14 +320,8 @@ export default function RemoveOneGame() {
             </Badge>
             <Badge variant="outline" className="border-green-500 text-green-400">
               <Users className="w-4 h-4 mr-1" />
-              {activePlayers.length} Players Active
+              {allPlayers.length} Players
             </Badge>
-            {room.game_settings.survivalRounds.includes(room.game_state.currentRound) && (
-              <Badge variant="outline" className="border-red-500 text-red-400">
-                <Target className="w-4 h-4 mr-1" />
-                Survival Round
-              </Badge>
-            )}
           </div>
         </div>
 
@@ -364,86 +332,88 @@ export default function RemoveOneGame() {
               <CardTitle>Game Controls</CardTitle>
               <CardDescription className="text-gray-300">
                 {room.game_state.gamePhase === "cardSelection" && "Select two cards and submit"}
-                {room.game_state.gamePhase === "cardReveal" && "All players' card selections"}
-                {room.game_state.gamePhase === "finalChoice" && "Choose left or right card and submit"}
+                {room.game_state.gamePhase === "finalChoice" && "Choose your final card from your selection"}
                 {room.game_state.gamePhase === "roundResults" && "Round results"}
+                {room.game_state.gamePhase === "gameOver" && "Game finished!"}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {/* Card Selection Phase */}
-              {room.game_state.gamePhase === "cardSelection" &&
-                currentPlayer &&
-                !currentPlayer.player_data.isEliminated && (
-                  <div>
-                    {!currentPlayer.player_data.hasSubmittedCards ? (
-                      <>
-                        <p className="mb-4 text-white">Select exactly 2 cards:</p>
-                        <div className="grid grid-cols-4 gap-2 mb-4 max-w-md">
-                          {getAvailableCards(currentPlayer).map((card: number) => {
-                            const selectedCards = currentPlayer.player_data.selectedCards || []
-                            const validSelected = selectedCards.filter((c) => c !== -1)
-                            const isSelected = validSelected.includes(card)
+              {room.game_state.gamePhase === "cardSelection" && currentPlayer && (
+                <div>
+                  {!currentPlayer.player_data.hasSubmittedCards ? (
+                    <>
+                      <p className="mb-4 text-white">Select exactly 2 cards:</p>
+                      <div className="grid grid-cols-4 gap-2 mb-4 max-w-md">
+                        {getAvailableCards(currentPlayer).map((card: number) => {
+                          const selectedCards = currentPlayer.player_data.selectedCards || []
+                          const validSelected = selectedCards.filter((c) => c !== -1)
+                          const isSelected = validSelected.includes(card)
 
-                            return (
-                              <button
-                                key={card}
-                                className={`p-3 rounded border-2 transition-all text-white font-bold ${
-                                  isSelected
-                                    ? "bg-red-600 border-red-400 shadow-lg transform scale-105"
-                                    : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
-                                }`}
-                                onClick={() => handleCardSelection(card)}
-                                disabled={!isSelected && validSelected.length >= 2}
-                              >
-                                {card}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        <div className="text-sm text-gray-300 mb-4">
-                          Selected: {currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0}/2
-                          cards
-                          {currentPlayer.player_data.selectedCards && (
-                            <span className="ml-2 text-white">
-                              [{currentPlayer.player_data.selectedCards.filter((c) => c !== -1).join(", ")}]
-                            </span>
-                          )}
-                        </div>
-                        <Button
-                          onClick={handleSubmitCards}
-                          className="bg-green-600 hover:bg-green-700"
-                          disabled={
-                            !currentPlayer.player_data.selectedCards ||
-                            currentPlayer.player_data.selectedCards.filter((c) => c !== -1).length !== 2
-                          }
-                        >
-                          Submit Cards
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="text-center py-8">
-                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                        <p className="text-green-400 font-bold mb-2">Cards Submitted!</p>
-                        <p className="text-gray-400">Waiting for other players...</p>
-                        <div className="mt-4">
-                          <p className="text-sm text-gray-300">
-                            Your cards: [{currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).join(", ")}]
-                          </p>
-                        </div>
+                          return (
+                            <button
+                              key={card}
+                              className={`p-3 rounded border-2 transition-all text-white font-bold ${
+                                isSelected
+                                  ? "bg-red-600 border-red-400 shadow-lg transform scale-105"
+                                  : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
+                              }`}
+                              onClick={() => handleCardSelection(card)}
+                              disabled={!isSelected && validSelected.length >= 2}
+                            >
+                              {card}
+                            </button>
+                          )
+                        })}
                       </div>
-                    )}
-                  </div>
-                )}
+                      <div className="text-sm text-gray-300 mb-4">
+                        Selected: {currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).length || 0}/2 cards
+                        {currentPlayer.player_data.selectedCards && (
+                          <span className="ml-2 text-white">
+                            [{currentPlayer.player_data.selectedCards.filter((c) => c !== -1).join(", ")}]
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 mb-4">
+                        Cards in holding box (frozen this round): [{currentPlayer.player_data.holdingBox.join(", ")}]
+                      </div>
+                      <Button
+                        onClick={handleSubmitCards}
+                        className="bg-green-600 hover:bg-green-700"
+                        disabled={
+                          !currentPlayer.player_data.selectedCards ||
+                          currentPlayer.player_data.selectedCards.filter((c) => c !== -1).length !== 2
+                        }
+                      >
+                        Submit Cards
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                      <p className="text-green-400 font-bold mb-2">Cards Submitted!</p>
+                      <p className="text-gray-400">Waiting for other players...</p>
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-300">
+                          Your cards: [{currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).join(", ")}]
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* Card Reveal Phase */}
-              {room.game_state.gamePhase === "cardReveal" && (
+              {/* Combined Final Choice Phase (shows everyone's cards + final choice) */}
+              {room.game_state.gamePhase === "finalChoice" && currentPlayer && (
                 <div>
                   <div className="flex items-center gap-2 mb-6">
                     <Eye className="w-5 h-5 text-blue-400" />
                     <h3 className="text-xl font-bold">All Players' Card Selections</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {activePlayers.map((player) => (
+
+                  {/* Show all players' cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                    {allPlayers.map((player) => (
                       <div
                         key={player.id}
                         className={`p-4 rounded-lg border ${
@@ -470,71 +440,55 @@ export default function RemoveOneGame() {
                       </div>
                     ))}
                   </div>
-                  {isHost && (
-                    <div className="text-center">
-                      <Button onClick={continueToFinalChoice} className="bg-blue-600 hover:bg-blue-700">
-                        Continue to Final Choice
+
+                  {/* Final choice for current player */}
+                  {!currentPlayer.player_data.hasSubmittedFinalChoice ? (
+                    <>
+                      <p className="mb-4 text-white">Choose your final card:</p>
+                      <div className="flex gap-4 max-w-md mb-4">
+                        <Button
+                          onClick={() => handleFinalChoice("left")}
+                          className={`flex-1 text-white font-bold ${
+                            currentPlayer.player_data.finalChoice === "left"
+                              ? "bg-red-600 hover:bg-red-700"
+                              : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
+                          }`}
+                          variant={currentPlayer.player_data.finalChoice === "left" ? "default" : "outline"}
+                        >
+                          Left: {currentPlayer.player_data.selectedCards?.[0]}
+                        </Button>
+                        <Button
+                          onClick={() => handleFinalChoice("right")}
+                          className={`flex-1 text-white font-bold ${
+                            currentPlayer.player_data.finalChoice === "right"
+                              ? "bg-red-600 hover:bg-red-700"
+                              : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
+                          }`}
+                          variant={currentPlayer.player_data.finalChoice === "right" ? "default" : "outline"}
+                        >
+                          Right: {currentPlayer.player_data.selectedCards?.[1]}
+                        </Button>
+                      </div>
+                      <Button
+                        onClick={handleSubmitFinalChoice}
+                        className="bg-green-600 hover:bg-green-700"
+                        disabled={!currentPlayer.player_data.finalChoice}
+                      >
+                        Submit Final Choice
                       </Button>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                      <p className="text-green-400 font-bold mb-2">Final Choice Submitted!</p>
+                      <p className="text-gray-400">Waiting for other players...</p>
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-300">Your final card: {currentPlayer.player_data.finalCard}</p>
+                      </div>
                     </div>
                   )}
-                  {!isHost && <div className="text-center text-gray-400">Waiting for host to continue...</div>}
                 </div>
               )}
-
-              {/* Final Choice Phase */}
-              {room.game_state.gamePhase === "finalChoice" &&
-                currentPlayer?.player_data.selectedCards &&
-                !currentPlayer.player_data.isEliminated && (
-                  <div>
-                    {!currentPlayer.player_data.hasSubmittedFinalChoice ? (
-                      <>
-                        <p className="mb-4 text-white">Choose your final card:</p>
-                        <div className="flex gap-4 max-w-md mb-4">
-                          <Button
-                            onClick={() => handleFinalChoice("left")}
-                            className={`flex-1 text-white font-bold ${
-                              currentPlayer.player_data.finalChoice === "left"
-                                ? "bg-red-600 hover:bg-red-700"
-                                : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
-                            }`}
-                            variant={currentPlayer.player_data.finalChoice === "left" ? "default" : "outline"}
-                          >
-                            Left: {currentPlayer.player_data.selectedCards[0]}
-                          </Button>
-                          <Button
-                            onClick={() => handleFinalChoice("right")}
-                            className={`flex-1 text-white font-bold ${
-                              currentPlayer.player_data.finalChoice === "right"
-                                ? "bg-red-600 hover:bg-red-700"
-                                : "bg-gray-700 hover:bg-gray-600 border border-gray-600"
-                            }`}
-                            variant={currentPlayer.player_data.finalChoice === "right" ? "default" : "outline"}
-                          >
-                            Right: {currentPlayer.player_data.selectedCards[1]}
-                          </Button>
-                        </div>
-                        <Button
-                          onClick={handleSubmitFinalChoice}
-                          className="bg-green-600 hover:bg-green-700"
-                          disabled={!currentPlayer.player_data.finalChoice}
-                        >
-                          Submit Final Choice
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="text-center py-8">
-                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                        <p className="text-green-400 font-bold mb-2">Final Choice Submitted!</p>
-                        <p className="text-gray-400">Waiting for other players...</p>
-                        <div className="mt-4">
-                          <p className="text-sm text-gray-300">
-                            Your final card: {currentPlayer.player_data.finalCard}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
               {/* Round Results Phase */}
               {room.game_state.gamePhase === "roundResults" && (
@@ -546,7 +500,7 @@ export default function RemoveOneGame() {
 
                   {/* Show all final cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {activePlayers.map((player) => (
+                    {allPlayers.map((player) => (
                       <div
                         key={player.id}
                         className={`p-4 rounded-lg border ${
@@ -594,8 +548,10 @@ export default function RemoveOneGame() {
 
                   {isHost && (
                     <div className="text-center">
-                      <Button onClick={continueGame} className="bg-blue-600 hover:bg-blue-700">
-                        Continue to Next Round
+                      <Button onClick={continueToNextRound} className="bg-blue-600 hover:bg-blue-700">
+                        {room.game_state.currentRound >= room.game_settings.totalRounds
+                          ? "End Game"
+                          : "Continue to Next Round"}
                       </Button>
                     </div>
                   )}
@@ -603,14 +559,29 @@ export default function RemoveOneGame() {
                 </div>
               )}
 
-              {/* Host Controls for other phases */}
-              {isHost && room.game_state.gamePhase === "survival" && (
-                <div className="text-center">
-                  <Target className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                  <p className="mb-4">Survival Round!</p>
-                  <Button onClick={continueGame} className="bg-red-600 hover:bg-red-700">
-                    Process Elimination
-                  </Button>
+              {/* Game Over */}
+              {room.game_state.gamePhase === "gameOver" && (
+                <div className="text-center py-8">
+                  <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                  <h2 className="text-3xl font-bold mb-6">Game Over!</h2>
+                  <div className="bg-gray-800 rounded-lg p-6 max-w-md mx-auto">
+                    <h3 className="text-xl font-bold mb-4">Final Standings</h3>
+                    {players
+                      .sort((a, b) => b.player_data.points - a.player_data.points)
+                      .map((player, index) => (
+                        <div key={player.id} className="flex justify-between items-center py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold">#{index + 1}</span>
+                            <span>{player.player_name}</span>
+                            {index === 0 && <Trophy className="w-4 h-4 text-yellow-500" />}
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-green-400">{player.player_data.points} pts</div>
+                            <div className="text-xs text-yellow-400">{player.player_data.victoryTokens} tokens</div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -627,11 +598,7 @@ export default function RemoveOneGame() {
                   <div
                     key={player.id}
                     className={`p-4 rounded-lg border ${
-                      player.player_data.isEliminated
-                        ? "bg-red-950/30 border-red-800"
-                        : player.id === currentPlayerId
-                          ? "bg-blue-950/30 border-blue-600"
-                          : "bg-gray-800 border-gray-700"
+                      player.id === currentPlayerId ? "bg-blue-950/30 border-blue-600" : "bg-gray-800 border-gray-700"
                     }`}
                   >
                     <div className="flex justify-between items-center mb-2">
@@ -639,7 +606,6 @@ export default function RemoveOneGame() {
                         {player.player_name} {player.id === currentPlayerId && "(You)"}
                       </h3>
                       <div className="flex gap-1">
-                        {player.player_data.isEliminated && <Badge variant="destructive">Eliminated</Badge>}
                         {player.is_host && <Badge variant="outline">Host</Badge>}
                         {room.game_state.gamePhase === "cardSelection" && player.player_data.hasSubmittedCards && (
                           <Badge className="bg-green-600">Submitted</Badge>
@@ -658,6 +624,9 @@ export default function RemoveOneGame() {
                       </div>
                       <div className="text-white">
                         Available Cards: <span className="text-blue-400">{getAvailableCards(player).length}</span>
+                      </div>
+                      <div className="text-white">
+                        Holding Box: <span className="text-orange-400">{player.player_data.holdingBox.length}</span>
                       </div>
                     </div>
                   </div>

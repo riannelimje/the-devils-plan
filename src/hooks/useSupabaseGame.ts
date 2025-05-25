@@ -37,7 +37,6 @@ export function useSupabaseGame() {
             currentRound: 1,
             gamePhase: "lobby",
             roundWinner: null,
-            eliminatedPlayer: null,
             gameStarted: false,
           },
         })
@@ -56,14 +55,11 @@ export function useSupabaseGame() {
           player_data: {
             deck: [...INITIAL_DECK],
             holdingBox: [],
-            tempUnavailable: [],
             points: 0,
             victoryTokens: 0,
-            isEliminated: false,
             selectedCards: null,
             finalChoice: null,
             finalCard: null,
-            isReady: false,
             hasSubmittedCards: false,
             hasSubmittedFinalChoice: false,
           },
@@ -118,14 +114,11 @@ export function useSupabaseGame() {
           player_data: {
             deck: [...INITIAL_DECK],
             holdingBox: [],
-            tempUnavailable: [],
             points: 0,
             victoryTokens: 0,
-            isEliminated: false,
             selectedCards: null,
             finalChoice: null,
             finalCard: null,
-            isReady: false,
             hasSubmittedCards: false,
             hasSubmittedFinalChoice: false,
           },
@@ -176,12 +169,12 @@ export function useSupabaseGame() {
     if (!room || !currentPlayerId) return
 
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
-    if (!currentPlayer || currentPlayer.player_data.isEliminated || currentPlayer.player_data.hasSubmittedCards) return
+    if (!currentPlayer || currentPlayer.player_data.hasSubmittedCards) return
 
     const currentSelected = currentPlayer.player_data.selectedCards || []
     let newSelected: number[] = []
 
-    // Fix: Handle the case where selectedCards might have -1 placeholder
+    // Handle the case where selectedCards might have -1 placeholder
     const validSelected = currentSelected.filter((c) => c !== -1)
 
     if (validSelected.includes(card)) {
@@ -235,54 +228,24 @@ export function useSupabaseGame() {
         })
         .eq("id", currentPlayerId)
 
-      // Log action
-      await supabase.from("game_actions").insert({
-        room_id: room.id,
-        player_id: currentPlayerId,
-        action_type: "CARDS_SUBMITTED",
-        action_data: { selectedCards: validSelected },
-      })
-
       // Check if all players have submitted
-      const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+      const activePlayers = players.filter((p) => true) // No elimination, all players active
       const allSubmitted = activePlayers.every((p) => p.id === currentPlayerId || p.player_data.hasSubmittedCards)
 
       if (allSubmitted) {
-        // Move to reveal phase
+        // Move to combined reveal and final choice phase
         setTimeout(async () => {
           await supabase
             .from("rooms")
             .update({
               game_state: {
                 ...room.game_state,
-                gamePhase: "cardReveal",
+                gamePhase: "finalChoice",
               },
             })
             .eq("id", room.id)
         }, 1000)
       }
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
-
-  // Continue from card reveal to final choice
-  const continueToFinalChoice = async () => {
-    if (!room || !currentPlayerId) return
-
-    const currentPlayer = players.find((p) => p.id === currentPlayerId)
-    if (!currentPlayer?.is_host) return
-
-    try {
-      await supabase
-        .from("rooms")
-        .update({
-          game_state: {
-            ...room.game_state,
-            gamePhase: "finalChoice",
-          },
-        })
-        .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
     }
@@ -332,19 +295,8 @@ export function useSupabaseGame() {
         })
         .eq("id", currentPlayerId)
 
-      // Log action
-      await supabase.from("game_actions").insert({
-        room_id: room.id,
-        player_id: currentPlayerId,
-        action_type: "FINAL_CHOICE_SUBMITTED",
-        action_data: {
-          choice: currentPlayer.player_data.finalChoice,
-          finalCard: currentPlayer.player_data.finalCard,
-        },
-      })
-
       // Check if all players have submitted final choices
-      const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+      const activePlayers = players.filter((p) => true) // No elimination
       const allSubmittedFinal = activePlayers.every(
         (p) => p.id === currentPlayerId || p.player_data.hasSubmittedFinalChoice,
       )
@@ -368,7 +320,7 @@ export function useSupabaseGame() {
     if (!currentPlayer?.is_host) return
 
     try {
-      const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+      const activePlayers = players.filter((p) => true) // No elimination
       const submissions = activePlayers.map((p) => ({
         playerId: p.id,
         playerName: p.player_name,
@@ -388,11 +340,14 @@ export function useSupabaseGame() {
       const lowestUnique = uniqueCards.length > 0 ? Math.min(...uniqueCards.map((sub) => sub.card)) : null
       const winner = lowestUnique ? submissions.find((sub) => sub.card === lowestUnique) : null
 
-      // Update players with results
+      // Update players with results and CORRECT card management
       for (const player of activePlayers) {
         const isWinner = player.id === winner?.playerId
-        const usedCard = player.player_data.finalCard!
-        const unusedCard = player.player_data.selectedCards!.find((card) => card !== usedCard)!
+        const usedCard = player.player_data.finalCard! // Card that was submitted (will be permanently removed)
+        const unusedCard = player.player_data.selectedCards!.find((card) => card !== usedCard)! // Card not chosen (goes to holding box)
+
+        const newDeck = player.player_data.deck.filter((card) => card !== usedCard && card !== unusedCard)
+        const newHoldingBox = [...player.player_data.holdingBox, unusedCard]
 
         await supabase
           .from("players")
@@ -401,8 +356,8 @@ export function useSupabaseGame() {
               ...player.player_data,
               points: player.player_data.points + (isWinner ? usedCard : 0),
               victoryTokens: player.player_data.victoryTokens + (isWinner ? 1 : 0),
-              holdingBox: isWinner ? [...player.player_data.holdingBox, usedCard] : player.player_data.holdingBox,
-              tempUnavailable: !isWinner ? [unusedCard] : [],
+              deck: newDeck,
+              holdingBox: newHoldingBox,
             },
           })
           .eq("id", player.id)
@@ -424,62 +379,64 @@ export function useSupabaseGame() {
     }
   }
 
-  // Continue game (host only)
-  const continueGame = async () => {
+  // Continue to next round
+  const continueToNextRound = async () => {
     if (!room || !currentPlayerId) return
 
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
     if (!currentPlayer?.is_host) return
 
     try {
-      // Check if it's a survival round
-      const isSurvivalRound = room.game_settings.survivalRounds.includes(room.game_state.currentRound)
-
-      if (isSurvivalRound) {
-        // Handle survival round logic here
+      // Check if game should end
+      if (room.game_state.currentRound >= room.game_settings.totalRounds) {
         await supabase
           .from("rooms")
           .update({
             game_state: {
               ...room.game_state,
-              gamePhase: "survival",
+              gamePhase: "gameOver",
             },
           })
           .eq("id", room.id)
-      } else {
-        // Reset for next round
-        const activePlayers = players.filter((p) => !p.player_data.isEliminated)
-
-        for (const player of activePlayers) {
-          await supabase
-            .from("players")
-            .update({
-              player_data: {
-                ...player.player_data,
-                selectedCards: null,
-                finalChoice: null,
-                finalCard: null,
-                hasSubmittedCards: false,
-                hasSubmittedFinalChoice: false,
-                tempUnavailable: [], // Return temp unavailable cards
-              },
-            })
-            .eq("id", player.id)
-        }
-
-        // Move to next round
-        await supabase
-          .from("rooms")
-          .update({
-            game_state: {
-              ...room.game_state,
-              gamePhase: "cardSelection",
-              currentRound: room.game_state.currentRound + 1,
-              roundWinner: null,
-            },
-          })
-          .eq("id", room.id)
+        return
       }
+
+      // Reset for next round and release cards from holding box back to deck
+      const allPlayers = players.filter((p) => true)
+
+      for (const player of allPlayers) {
+        // CORRECT LOGIC: Move cards from holding box back to deck
+        const newDeck = [...player.player_data.deck, ...player.player_data.holdingBox]
+
+        await supabase
+          .from("players")
+          .update({
+            player_data: {
+              ...player.player_data,
+              selectedCards: null,
+              finalChoice: null,
+              finalCard: null,
+              hasSubmittedCards: false,
+              hasSubmittedFinalChoice: false,
+              deck: newDeck,
+              holdingBox: [], // Clear holding box - cards are now back in deck
+            },
+          })
+          .eq("id", player.id)
+      }
+
+      // Move to next round
+      await supabase
+        .from("rooms")
+        .update({
+          game_state: {
+            ...room.game_state,
+            gamePhase: "cardSelection",
+            currentRound: room.game_state.currentRound + 1,
+            roundWinner: null,
+          },
+        })
+        .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
     }
@@ -530,28 +487,9 @@ export function useSupabaseGame() {
       )
       .subscribe()
 
-    // Subscribe to game actions
-    const actionsSubscription = supabase
-      .channel(`actions-${room.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "game_actions",
-          filter: `room_id=eq.${room.id}`,
-        },
-        (payload) => {
-          // Handle real-time game actions here
-          console.log("New game action:", payload.new)
-        },
-      )
-      .subscribe()
-
     return () => {
       roomSubscription.unsubscribe()
       playersSubscription.unsubscribe()
-      actionsSubscription.unsubscribe()
     }
   }, [room])
 
@@ -581,9 +519,8 @@ export function useSupabaseGame() {
     startGame,
     selectCard,
     submitCardSelection,
-    continueToFinalChoice,
     makeFinalChoice,
     submitFinalChoice,
-    continueGame,
+    continueToNextRound,
   }
 }
