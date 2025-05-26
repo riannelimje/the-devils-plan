@@ -11,6 +11,7 @@ export function useSupabaseGame() {
   const [currentPlayerId, setCurrentPlayerId] = useState<string>("")
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState("")
+  const [isProcessingRound, setIsProcessingRound] = useState(false) // Prevent double processing
 
   // Generate room code
   const generateRoomCode = () => {
@@ -314,10 +315,13 @@ export function useSupabaseGame() {
 
   // Process round results
   const processRoundResults = async () => {
-    if (!room || !currentPlayerId) return
+    if (!room || !currentPlayerId || isProcessingRound) return
 
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
     if (!currentPlayer?.is_host) return
+
+    console.log("🎯 Starting round processing...")
+    setIsProcessingRound(true) // Prevent double processing
 
     try {
       const activePlayers = players.filter((p) => true) // No elimination
@@ -340,12 +344,12 @@ export function useSupabaseGame() {
       const lowestUnique = uniqueCards.length > 0 ? Math.min(...uniqueCards.map((sub) => sub.card)) : null
       const winner = lowestUnique ? submissions.find((sub) => sub.card === lowestUnique) : null
 
-      console.log("Processing round results:", {
+      console.log("🎯 Round analysis:", {
         submissions,
         cardCounts,
         uniqueCards,
         lowestUnique,
-        winner,
+        winner: winner?.playerName,
       })
 
       // Update players with FIXED card management
@@ -354,17 +358,15 @@ export function useSupabaseGame() {
         const usedCard = player.player_data.finalCard! // Card that was submitted (will be permanently removed)
         const unusedCard = player.player_data.selectedCards!.find((card) => card !== usedCard)! // Card not chosen (goes to holding box)
 
-        console.log(`BEFORE - Player ${player.player_name}:`, {
+        console.log(`🎯 BEFORE - Player ${player.player_name}:`, {
           deck: player.player_data.deck,
           holdingBox: player.player_data.holdingBox,
           usedCard,
           unusedCard,
+          currentPoints: player.player_data.points,
         })
 
         // FIXED LOGIC: Properly manage cards without duplicates
-        // 1. Start with current deck
-        // 2. Remove the used card permanently (it's discarded)
-        // 3. Remove the unused card from deck and put it in holding box
         const newDeck = [...player.player_data.deck]
         const newHoldingBox = [...player.player_data.holdingBox]
 
@@ -381,10 +383,16 @@ export function useSupabaseGame() {
           newHoldingBox.push(unusedCard)
         }
 
-        console.log(`AFTER - Player ${player.player_name}:`, {
+        const pointsAwarded = isWinner ? usedCard : 0
+        const newPoints = player.player_data.points + pointsAwarded
+        const newVictoryTokens = player.player_data.victoryTokens + (isWinner ? 1 : 0)
+
+        console.log(`🎯 AFTER - Player ${player.player_name}:`, {
           newDeck,
           newHoldingBox,
-          pointsAwarded: isWinner ? usedCard : 0,
+          pointsAwarded,
+          newPoints,
+          newVictoryTokens,
         })
 
         await supabase
@@ -392,8 +400,8 @@ export function useSupabaseGame() {
           .update({
             player_data: {
               ...player.player_data,
-              points: player.player_data.points + (isWinner ? usedCard : 0),
-              victoryTokens: player.player_data.victoryTokens + (isWinner ? 1 : 0),
+              points: newPoints,
+              victoryTokens: newVictoryTokens,
               deck: newDeck,
               holdingBox: newHoldingBox,
             },
@@ -412,9 +420,13 @@ export function useSupabaseGame() {
           },
         })
         .eq("id", room.id)
+
+      console.log("🎯 Round processing completed!")
     } catch (err: any) {
       setError(err.message)
-      console.error("Error processing round results:", err)
+      console.error("❌ Error processing round results:", err)
+    } finally {
+      setIsProcessingRound(false) // Reset processing flag
     }
   }
 
@@ -442,9 +454,8 @@ export function useSupabaseGame() {
 
       // Check if we need to reset the deck (after rounds 6 and 12)
       const shouldResetDeck = [6, 12].includes(room.game_state.currentRound)
-      console.log("Current round:", room.game_state.currentRound)
-      console.log("Should reset deck?", shouldResetDeck)
-
+      console.log("🔄 Current round:", room.game_state.currentRound)
+      console.log("🔄 Should reset deck?", shouldResetDeck)
 
       const allPlayers = players.filter((p) => true)
 
@@ -453,13 +464,23 @@ export function useSupabaseGame() {
 
         if (shouldResetDeck) {
           // FULL RESET: Give a fresh deck and clear holding box
+          console.log(`🔄 DECK RESET for ${player.player_name}`)
           newDeck = [...INITIAL_DECK]
           newHoldingBox = []
         } else {
           // Normal: move holding box cards back to deck
+          console.log(`🔄 NORMAL RESET for ${player.player_name}:`, {
+            currentDeck: player.player_data.deck,
+            currentHoldingBox: player.player_data.holdingBox,
+          })
           newDeck = [...player.player_data.deck, ...player.player_data.holdingBox]
           newHoldingBox = []
         }
+
+        console.log(`🔄 AFTER RESET - Player ${player.player_name}:`, {
+          newDeck,
+          newHoldingBox,
+        })
 
         await supabase
           .from("players")
@@ -492,7 +513,7 @@ export function useSupabaseGame() {
         .eq("id", room.id)
     } catch (err: any) {
       setError(err.message)
-      console.error("Error continuing to next round:", err)
+      console.error("❌ Error continuing to next round:", err)
     }
   }
 
@@ -562,9 +583,9 @@ export function useSupabaseGame() {
     loadPlayers()
   }, [room])
 
-  // Auto-process round when all players have submitted final choices
+  // Auto-process round when all players have submitted final choices (FIXED to prevent double processing)
   useEffect(() => {
-    if (!room || room.game_state.gamePhase !== "finalChoice") return
+    if (!room || room.game_state.gamePhase !== "finalChoice" || isProcessingRound) return
 
     const activePlayers = players.filter((p) => true)
     const allSubmittedFinal =
@@ -573,13 +594,14 @@ export function useSupabaseGame() {
     if (allSubmittedFinal) {
       const currentPlayer = players.find((p) => p.id === currentPlayerId)
       if (currentPlayer?.is_host) {
+        console.log("🎯 All players submitted, processing round...")
         // Small delay to ensure all updates are processed
         setTimeout(() => {
           processRoundResults()
         }, 1500)
       }
     }
-  }, [players, room])
+  }, [players, room, isProcessingRound]) // Added isProcessingRound to dependencies
 
   return {
     room,
