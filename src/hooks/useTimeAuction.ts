@@ -93,7 +93,7 @@ export function useTimeAuction() {
           room_code: roomCode,
           host_id: playerId,
           game_settings: {
-            totalTimeBank: gameSettings.totalTimeBank * 1000,
+            totalTimeBank: gameSettings.totalTimeBank * 1000 * 60, // i got to convert to milliseconds
             totalRounds: gameSettings.totalRounds,
           },
           game_state: {
@@ -119,7 +119,7 @@ export function useTimeAuction() {
           room_id: roomData.id,
           player_name: playerName,
           player_data: {
-            timeBank: gameSettings.totalTimeBank * 1000,
+            timeBank: gameSettings.totalTimeBank * 1000 * 60,
             victoryTokens: 0,
             isButtonPressed: false,
             hasOptedOut: false,
@@ -138,7 +138,7 @@ export function useTimeAuction() {
 
       setRoom(roomData)
       setCurrentPlayerId(playerId)
-      setLocalTimeBank(gameSettings.totalTimeBank * 1000)
+      setLocalTimeBank(gameSettings.totalTimeBank * 1000 * 60)
       setError("")
 
       console.log("🎯 Room created:", roomCode)
