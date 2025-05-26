@@ -129,6 +129,9 @@ export default function TimeAuctionGame() {
                 <span className="text-red-500">Time Auction</span> - Multiplayer
               </h1>
               <p className="text-gray-400">Strategic bidding game where players use their time banks to win rounds</p>
+              <Link href="/games/timeAuction/rules" className="text-blue-400 hover:underline mt-2 inline-block">
+                View Game Rules
+              </Link>
 
               {/* Connection Status */}
               <div className="flex items-center justify-center gap-2 mt-4">
