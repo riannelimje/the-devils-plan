@@ -59,13 +59,13 @@ export default function Home() {
               image="/images/game2.png"
               href="/games/removeOne"
             />
-            {/* <GameCard
-              title={<span className="text-red-500">Game 3</span>}
-              description="Description of Game 3"
-              players="4"
+            <GameCard
+              title={<span className="text-red-500">Time Auction</span>}
+              description="Bid from a limited time bank and become the last standing player to win! - this game is still in development"
+              players="2+"
               image="/images/game3.png"
-              href="/games/game3"
-            /> */}
+              href="/games/timeAuction"
+            />
             </div>
         </section>
 
