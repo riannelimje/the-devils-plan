@@ -5,7 +5,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Types for our database
+// Remove One Game Types
 export interface Room {
   id: string
   room_code: string
@@ -53,5 +53,51 @@ export interface GameAction {
   player_id: string
   action_type: string
   action_data: any
+  processed?: boolean
   created_at: string
+}
+
+// Time Auction Game Types
+export interface TimeAuctionRoom {
+  id: string
+  room_code: string
+  host_id: string
+  game_settings: {
+    totalTimeBank: number // in milliseconds
+    totalRounds: number
+  }
+  game_state: {
+    currentRound: number
+    gamePhase: "lobby" | "waiting" | "countdown" | "auction" | "roundResults" | "gameOver"
+    roundWinner: string | null
+    gameStarted: boolean
+    countdownStartTime: number | null
+    auctionStartTime: number | null
+    phaseTimeout: number | null
+    lastPhaseUpdate: number | null
+  }
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface TimeAuctionPlayer {
+  id: string
+  room_id: string
+  player_name: string
+  player_data: {
+    timeBank: number // remaining time in milliseconds
+    victoryTokens: number
+    isButtonPressed: boolean
+    hasOptedOut: boolean
+    bidTime: number | null // time spent in current auction (ms)
+    isEliminated: boolean
+    buttonPressTime: number | null
+    lastAction: number | null
+  }
+  is_host: boolean
+  is_connected: boolean
+  last_heartbeat: string
+  created_at: string
+  updated_at: string
 }
