@@ -1,3 +1,21 @@
+# the-devils-plan 
+I really wanted to play the games from the devil's plan so I thought why not recreate them!
+
+The current games catalogue: 
+1) The Knight's Tour
+2) Remove One
+3) Time Auction (still work in progress)
+
+The server may occassionally hang during gameplay for multiplayer ones... (still fixing) 
+
+## Tech Stack
+
+- **Frontend**: Next.js 
+- **Backend/Realtime**: Supabase
+- **Deployment**: Vercel
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
