@@ -29,19 +29,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // <html lang="en">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-black text-white min-h-screen antialiased`}
       >
         <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange={false}
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange={false}
         >
           {children}
         </ThemeProvider>
       </body>
-    // </html>
+    </html>
   );
 }

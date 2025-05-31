@@ -270,10 +270,7 @@ export default function RemoveOneGame() {
 
                     <div>
                       <Label>Total Rounds</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="18"
+                       <select
                         value={gameSettings.totalRounds}
                         onChange={(e) =>
                           setGameSettings((prev) => ({
@@ -281,8 +278,14 @@ export default function RemoveOneGame() {
                             totalRounds: Number.parseInt(e.target.value) || 10,
                           }))
                         }
-                        className="bg-gray-800 border-gray-700"
-                      />
+                        className="bg-gray-800 border-gray-700 rounded px-3 py-2 w-full text-white"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((num) => (
+                          <option key={num} value={num}>
+                            {num}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <Button onClick={handleCreateRoom} className="w-full bg-red-600 hover:bg-red-700">
