@@ -225,9 +225,12 @@ export default function KnightsTourGame() {
 
                   <div className="bg-gray-800 rounded-xl p-8 max-w-md mx-auto mb-8 bg-white dark:bg-black text-black dark:text-white">
                     <div
-                      className={`grid aspect-square gap-0 border border-gray-600`}
+                      className={`grid gap-1 border-2 border-gray-600 p-2 rounded-lg`}
                       style={{
-                        gridTemplateColumns: `repeat(${boardSize}, minmax(0, 1fr))`,
+                        gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
+                        width: '400px',
+                        height: '400px',
+                        margin: '0 auto'
                       }}
                     >
                       {Array.from({ length: boardSize * boardSize }).map((_, i) => {
@@ -241,14 +244,18 @@ export default function KnightsTourGame() {
                         return (
                           <div
                             key={i}
-                            className={`${isBlackSquare ? "bg-gray-700" : "bg-gray-500"} relative flex items-center justify-center cursor-pointer`}
+                            className={`${isBlackSquare ? "bg-gray-700" : "bg-gray-500"} relative flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity`}
+                            style={{
+                              aspectRatio: '1/1',
+                              minHeight: '0'
+                            }}
                             onClick={() => handleSquareClick(row, col)}
                           >
                             {isKnightHere && (
-                              <ChessKnight className="w-8 h-8 text-purple-400 z-10" />
+                              <ChessKnight className="w-6 h-6 text-purple-400 z-10" />
                             )}
                             {isVisited && !blindMode && (
-                              <div className="absolute bottom-1 right-1 text-xs opacity-50">
+                              <div className="absolute bottom-0.5 right-0.5 text-xs opacity-70 font-bold text-white">
                                 {moveIndex + 1}
                               </div>
                             )}
