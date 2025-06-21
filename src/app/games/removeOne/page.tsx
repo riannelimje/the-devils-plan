@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Users, Clock, Wifi, WifiOff, Eye, CheckCircle, Trophy } from "lucide-react"
+import { ArrowLeft, Users, Clock, Wifi, WifiOff, Eye, CheckCircle, Trophy, Bug } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,8 @@ export default function RemoveOneGame() {
     currentPlayerId,
     isConnected,
     error,
+    debugInfo,
+    isProcessingRound,
     createRoom,
     joinRoom,
     startGame,
@@ -27,10 +29,12 @@ export default function RemoveOneGame() {
     makeFinalChoice,
     submitFinalChoice,
     continueToNextRound,
+    forceProcessRound,
   } = useSupabaseGame()
 
   const [playerName, setPlayerName] = useState("")
   const [roomCodeInput, setRoomCodeInput] = useState("")
+  const [showDebug, setShowDebug] = useState(false)
   const [gameSettings, setGameSettings] = useState({
     totalRounds: 10,
     minPlayers: 2,
@@ -124,9 +128,7 @@ export default function RemoveOneGame() {
               <h1 className="text-4xl font-bold mb-4">
                 <span className="text-red-500">Remove One</span> - Multiplayer
               </h1>
-              <p className="text-gray-400">
-                Accumulate points by playing the lowest unique card each round!
-              </p>
+              <p className="text-gray-400">Accumulate points by playing the lowest unique card each round!</p>
               <Link href="/games/removeOne/rules" className="text-blue-400 hover:underline mt-2 inline-block">
                 View Game Rules
               </Link>
@@ -270,7 +272,7 @@ export default function RemoveOneGame() {
 
                     <div>
                       <Label>Total Rounds</Label>
-                       <select
+                      <select
                         value={gameSettings.totalRounds}
                         onChange={(e) =>
                           setGameSettings((prev) => ({
@@ -314,8 +316,75 @@ export default function RemoveOneGame() {
           <div className="flex items-center gap-2 text-sm">
             <span>Room: {room.room_code}</span>
             <Wifi className="w-4 h-4 text-green-500" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDebug(!showDebug)}
+              className="text-gray-400 hover:text-white"
+            >
+              <Bug className="w-4 h-4" />
+            </Button>
           </div>
         </div>
+
+        {/* Debug Info */}
+        {showDebug && (
+          <Card className="bg-gray-900 border-gray-800 mb-6">
+            <CardHeader>
+              <CardTitle className="text-sm">Debug Info</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs space-y-1 font-mono">
+                <div>Phase: {room.game_state.gamePhase}</div>
+                <div>Round: {room.game_state.currentRound}</div>
+                <div>Processing: {isProcessingRound ? "Yes" : "No"}</div>
+                <div>All Cards Submitted: {allPlayersSubmittedCards ? "Yes" : "No"}</div>
+                <div>All Final Submitted: {allPlayersSubmittedFinal ? "Yes" : "No"}</div>
+                <div>Players: {allPlayers.length}</div>
+                <div>
+                  Card Submissions:{" "}
+                  {allPlayers.map((p) => `${p.player_name}:${p.player_data.hasSubmittedCards ? "✓" : "✗"}`).join(", ")}
+                </div>
+                <div>
+                  Final Submissions:{" "}
+                  {allPlayers
+                    .map((p) => `${p.player_name}:${p.player_data.hasSubmittedFinalChoice ? "✓" : "✗"}`)
+                    .join(", ")}
+                </div>
+                {debugInfo && <div>Debug: {debugInfo}</div>}
+              </div>
+              {isHost && (
+                <div className="mt-2 space-x-2">
+                  <Button onClick={forceProcessRound} className="bg-orange-600 hover:bg-orange-700" size="sm">
+                    Force Process Round
+                  </Button>
+                  {room.game_state.gamePhase === "roundResults" && (
+                    <Button onClick={continueToNextRound} className="bg-blue-600 hover:bg-blue-700" size="sm">
+                      Force Next Round
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Processing Indicator */}
+        {(debugInfo || isProcessingRound) && (
+          <div className="max-w-4xl mx-auto mb-4">
+            <div className="bg-blue-900/50 border border-blue-500 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+                <span className="text-blue-200">{debugInfo || "Processing..."}</span>
+                {isHost && isProcessingRound && (
+                  <Button onClick={forceProcessRound} size="sm" variant="outline" className="ml-auto text-xs">
+                    Force Continue
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Game Header */}
         <div className="text-center mb-8">
@@ -358,8 +427,8 @@ export default function RemoveOneGame() {
                           const isSelected = validSelected.includes(card)
                           const isLastCard = idx === arr.length - 1
                           // Only disable the last card from round 2 onwards
-                            // Disable last card except on rounds 7 and 13
-                            const shouldDisableLastCard =
+                          // Disable last card except on rounds 7 and 13
+                          const shouldDisableLastCard =
                             isLastCard &&
                             room.game_state.currentRound >= 2 &&
                             room.game_state.currentRound !== 7 &&
@@ -408,7 +477,10 @@ export default function RemoveOneGame() {
                     <div className="text-center py-8">
                       <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
                       <p className="text-green-400 font-bold mb-2">Cards Submitted!</p>
-                      <p className="text-gray-400">Waiting for other players...</p>
+                      <p className="text-gray-400">
+                        Waiting for other players... ({allPlayers.filter((p) => p.player_data.hasSubmittedCards).length}
+                        /{allPlayers.length})
+                      </p>
                       <div className="mt-4">
                         <p className="text-sm text-gray-300">
                           Your cards: [{currentPlayer.player_data.selectedCards?.filter((c) => c !== -1).join(", ")}]
@@ -497,7 +569,10 @@ export default function RemoveOneGame() {
                     <div className="text-center py-8">
                       <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
                       <p className="text-green-400 font-bold mb-2">Final Choice Submitted!</p>
-                      <p className="text-gray-400">Waiting for other players...</p>
+                      <p className="text-gray-400">
+                        Waiting for other players... (
+                        {allPlayers.filter((p) => p.player_data.hasSubmittedFinalChoice).length}/{allPlayers.length})
+                      </p>
                       <div className="mt-4">
                         <p className="text-sm text-gray-300">Your final card: {currentPlayer.player_data.finalCard}</p>
                       </div>

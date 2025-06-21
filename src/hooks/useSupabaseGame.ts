@@ -12,6 +12,7 @@ export function useSupabaseGame() {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState("")
   const [isProcessingRound, setIsProcessingRound] = useState(false) // Prevent double processing
+  const [debugInfo, setDebugInfo] = useState<string>("")
 
   // Generate room code
   const generateRoomCode = () => {
@@ -320,7 +321,8 @@ export function useSupabaseGame() {
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
     if (!currentPlayer?.is_host) return
 
-    console.log("🎯 Starting round processing...")
+    setDebugInfo("Starting round processing...")
+    console.log("Starting round processing...")
     setIsProcessingRound(true) // Prevent double processing
 
     try {
@@ -437,6 +439,8 @@ export function useSupabaseGame() {
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
     if (!currentPlayer?.is_host) return
 
+    setDebugInfo("Moving to next round...")
+
     try {
       // Check if game should end
       if (room.game_state.currentRound >= room.game_settings.totalRounds) {
@@ -517,6 +521,13 @@ export function useSupabaseGame() {
     }
   }
 
+  const forceProcessRound = async () => {
+    console.log("Force processing round...")
+    setDebugInfo("Force processing round...")
+    setIsProcessingRound(false) // Reset the flag
+    await processRoundResults()
+  }
+
   // Set up real-time subscriptions
   useEffect(() => {
     if (!room) return
@@ -594,14 +605,15 @@ export function useSupabaseGame() {
     if (allSubmittedFinal) {
       const currentPlayer = players.find((p) => p.id === currentPlayerId)
       if (currentPlayer?.is_host) {
-        console.log("🎯 All players submitted, processing round...")
+        setDebugInfo("All players submitted, processing round...")
+        console.log("All players submitted, processing round...")
         // Small delay to ensure all updates are processed
         setTimeout(() => {
           processRoundResults()
         }, 1500)
       }
     }
-  }, [players, room, isProcessingRound]) // Added isProcessingRound to dependencies
+  }, [players, room, isProcessingRound])
 
   return {
     room,
@@ -609,6 +621,8 @@ export function useSupabaseGame() {
     currentPlayerId,
     isConnected,
     error,
+    debugInfo,
+    isProcessingRound,
     createRoom,
     joinRoom,
     startGame,
@@ -617,5 +631,6 @@ export function useSupabaseGame() {
     makeFinalChoice,
     submitFinalChoice,
     continueToNextRound,
+    forceProcessRound,
   }
 }
