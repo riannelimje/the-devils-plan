@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { supabase, type TimeAuctionRoom, type TimeAuctionPlayer } from "@/lib/supabase"
+import { supabase, type TimeAuctionRoom, type TimeAuctionPlayer, type RoundWinner } from "@/lib/supabase"
 
 export function useTimeAuction() {
   const [room, setRoom] = useState<TimeAuctionRoom | null>(null)
@@ -10,7 +10,7 @@ export function useTimeAuction() {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState("")
   const [isButtonPressed, setIsButtonPressed] = useState(false)
-  const [localTimeBank, setLocalTimeBank] = useState(0)
+  const [currentAuctionTime, setCurrentAuctionTime] = useState(0) // Time counting up from 0
   const [showTimeUp, setShowTimeUp] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>({})
 
@@ -19,6 +19,7 @@ export function useTimeAuction() {
   const keyDownRef = useRef(false)
   const processingRef = useRef(false)
   const lastActionRef = useRef(0)
+  const buttonPressStartTime = useRef<number | null>(null)
 
   // Generate room code
   const generateRoomCode = () => {
@@ -93,7 +94,7 @@ export function useTimeAuction() {
           room_code: roomCode,
           host_id: playerId,
           game_settings: {
-            totalTimeBank: gameSettings.totalTimeBank * 1000 * 60, // i got to convert to milliseconds
+            totalTimeBank: gameSettings.totalTimeBank * 1000 * 60, // Convert minutes to milliseconds
             totalRounds: gameSettings.totalRounds,
           },
           game_state: {
@@ -105,6 +106,7 @@ export function useTimeAuction() {
             auctionStartTime: null,
             phaseTimeout: null,
             lastPhaseUpdate: Date.now(),
+            winnerBidTime: null,
           },
         })
         .select()
@@ -119,7 +121,7 @@ export function useTimeAuction() {
           room_id: roomData.id,
           player_name: playerName,
           player_data: {
-            timeBank: gameSettings.totalTimeBank * 1000 * 60,
+            timeBank: gameSettings.totalTimeBank * 1000 * 60, // Convert minutes to milliseconds
             victoryTokens: 0,
             isButtonPressed: false,
             hasOptedOut: false,
@@ -127,6 +129,7 @@ export function useTimeAuction() {
             isEliminated: false,
             buttonPressTime: null,
             lastAction: Date.now(),
+            totalTimeUsed: 0,
           },
           is_host: true,
           last_heartbeat: new Date().toISOString(),
@@ -138,7 +141,6 @@ export function useTimeAuction() {
 
       setRoom(roomData)
       setCurrentPlayerId(playerId)
-      setLocalTimeBank(gameSettings.totalTimeBank * 1000 * 60)
       setError("")
 
       console.log("🎯 Room created:", roomCode)
@@ -170,7 +172,7 @@ export function useTimeAuction() {
           room_id: roomData.id,
           player_name: playerName,
           player_data: {
-            timeBank: roomData.game_settings.totalTimeBank,
+            timeBank: roomData.game_settings.totalTimeBank, // Already in milliseconds
             victoryTokens: 0,
             isButtonPressed: false,
             hasOptedOut: false,
@@ -178,6 +180,7 @@ export function useTimeAuction() {
             isEliminated: false,
             buttonPressTime: null,
             lastAction: Date.now(),
+            totalTimeUsed: 0,
           },
           is_host: false,
           last_heartbeat: new Date().toISOString(),
@@ -189,7 +192,6 @@ export function useTimeAuction() {
 
       setRoom(roomData)
       setCurrentPlayerId(playerId)
-      setLocalTimeBank(roomData.game_settings.totalTimeBank)
       setError("")
 
       console.log("🎯 Joined room:", roomCode)
@@ -243,6 +245,7 @@ export function useTimeAuction() {
 
     processingRef.current = true
     setIsButtonPressed(true)
+    buttonPressStartTime.current = now
 
     try {
       console.log("🔴 Button pressed")
@@ -346,12 +349,18 @@ export function useTimeAuction() {
           .eq("id", currentPlayerId)
 
         await logAction("button_release", { phase: "countdown", optOut: true })
-        console.log("❌ Opted out during countdown")
+        console.log("Opted out during countdown")
       } else if (room.game_state.gamePhase === "auction") {
         // Place bid during auction
         const auctionStartTime = room.game_state.auctionStartTime!
-        const bidTime = now - auctionStartTime
+        const bidTime = now - auctionStartTime // Time spent in this round
+        const newTotalTimeUsed = currentPlayer.player_data.totalTimeUsed + bidTime
         const newTimeBank = Math.max(0, currentPlayer.player_data.timeBank - bidTime)
+
+        // Check if player has run out of time
+        if (newTimeBank <= 0) {
+          setShowTimeUp(true)
+        }
 
         await supabase
           .from("players")
@@ -361,15 +370,15 @@ export function useTimeAuction() {
               isButtonPressed: false,
               bidTime,
               timeBank: newTimeBank,
+              totalTimeUsed: newTotalTimeUsed,
               lastAction: now,
+              isEliminated: newTimeBank <= 0, // Eliminate if no time left
             },
           })
           .eq("id", currentPlayerId)
 
-        setLocalTimeBank(newTimeBank)
-
-        await logAction("button_release", { phase: "auction", bidTime, newTimeBank })
-        console.log(`💰 Bid placed: ${bidTime}ms, remaining: ${newTimeBank}ms`)
+        await logAction("button_release", { phase: "auction", bidTime, newTimeBank, newTotalTimeUsed })
+        console.log(`💰 Bid placed: ${bidTime}ms, total used: ${newTotalTimeUsed}ms, remaining: ${newTimeBank}ms`)
 
         // Check if all players have released (with delay for synchronization)
         setTimeout(async () => {
@@ -416,6 +425,7 @@ export function useTimeAuction() {
       setIsButtonPressed(true) // Revert on error
     } finally {
       processingRef.current = false
+      buttonPressStartTime.current = null
     }
   }, [room, currentPlayerId, players, isButtonPressed])
 
@@ -442,12 +452,7 @@ export function useTimeAuction() {
           bidTime: p.player_data.bidTime!,
         }))
 
-    interface Bid {
-      playerId: string
-      playerName: string
-      bidTime: number
-    }
-    let winner: Bid | null = null
+      let winner: RoundWinner | null = null
       if (bids.length > 0) {
         // Find highest bid (most time spent)
         const maxBid = Math.max(...bids.map((b) => b.bidTime))
@@ -456,23 +461,18 @@ export function useTimeAuction() {
         if (winners.length === 1) {
           winner = winners[0]
           // Award victory token
-          if (winner) {
-            // there is this 'winner' is possibly 'null' error but i'll put the non null assertion 
-            const winnerPlayer = freshPlayers.find((p) => p.id === winner!.playerId)
-            if (winnerPlayer) {
-              await supabase
-                .from("players")
-                .update({
-                  player_data: {
-                    ...winnerPlayer.player_data,
-                    victoryTokens: winnerPlayer.player_data.victoryTokens + 1,
-                  },
-                })
-                .eq("id", winner.playerId)
+          const winnerPlayer = freshPlayers.find((p) => p.id === winner!.playerId)!
+          await supabase
+            .from("players")
+            .update({
+              player_data: {
+                ...winnerPlayer.player_data,
+                victoryTokens: winnerPlayer.player_data.victoryTokens + 1,
+              },
+            })
+            .eq("id", winner.playerId)
 
-              console.log(`🏆 Winner: ${winner.playerName} (${winner.bidTime}ms)`)
-            }
-          }
+          console.log(`🏆 Winner: ${winner.playerName} (${winner.bidTime}ms)`)
         } else {
           console.log("🤝 Tie - no winner")
         }
@@ -486,6 +486,7 @@ export function useTimeAuction() {
             ...room.game_state,
             gamePhase: "roundResults",
             roundWinner: winner?.playerId || null,
+            winnerBidTime: winner?.bidTime || null, // Store winner's bid time
             lastPhaseUpdate: Date.now(),
           },
         })
@@ -534,7 +535,7 @@ export function useTimeAuction() {
               ...player.player_data,
               isButtonPressed: false,
               hasOptedOut: false,
-              bidTime: null,
+              bidTime: null, // Reset bid time for new round
               buttonPressTime: null,
               lastAction: Date.now(),
             },
@@ -551,6 +552,7 @@ export function useTimeAuction() {
             gamePhase: "waiting",
             currentRound: room.game_state.currentRound + 1,
             roundWinner: null,
+            winnerBidTime: null,
             countdownStartTime: null,
             auctionStartTime: null,
             lastPhaseUpdate: now,
@@ -558,6 +560,9 @@ export function useTimeAuction() {
           },
         })
         .eq("id", room.id)
+
+      // Reset the auction timer display
+      setCurrentAuctionTime(0)
 
       await logAction("phase_change", { newPhase: "waiting", round: room.game_state.currentRound + 1 })
       console.log(`🔄 Next round: ${room.game_state.currentRound + 1}`)
@@ -608,6 +613,7 @@ export function useTimeAuction() {
         lastUpdate: room.game_state.lastPhaseUpdate,
         timeout: room.game_state.phaseTimeout,
         now,
+        currentAuctionTime,
       })
 
       // Handle countdown phase
@@ -637,20 +643,27 @@ export function useTimeAuction() {
         }
       }
 
-      // Handle auction phase
+      // Handle auction phase - update the counting-up timer
       if (room.game_state.gamePhase === "auction" && room.game_state.auctionStartTime) {
+        const elapsed = now - room.game_state.auctionStartTime
+        setCurrentAuctionTime(elapsed) // Count up from 0
+
+        // Check if current player has run out of total time
         const currentPlayer = players.find((p) => p.id === currentPlayerId)
         if (currentPlayer && isButtonPressed) {
-          const elapsed = now - room.game_state.auctionStartTime
-          const newTimeBank = Math.max(0, currentPlayer.player_data.timeBank - elapsed)
-          setLocalTimeBank(newTimeBank)
+          const totalTimeUsed = currentPlayer.player_data.totalTimeUsed + elapsed
+          const remainingTime = currentPlayer.player_data.timeBank - totalTimeUsed
 
-          // Check if time is up
-          if (newTimeBank <= 0 && !showTimeUp) {
+          if (remainingTime <= 0 && !showTimeUp) {
             setShowTimeUp(true)
             releaseButton()
           }
         }
+      }
+
+      // Reset timer when not in auction phase
+      if (room.game_state.gamePhase !== "auction") {
+        setCurrentAuctionTime(0)
       }
 
       // Handle phase timeouts
@@ -682,7 +695,7 @@ export function useTimeAuction() {
     }, 50) // 50ms for smooth updates
 
     return () => clearInterval(timer)
-  }, [room, players, currentPlayerId, isButtonPressed, showTimeUp, releaseButton])
+  }, [room, players, currentPlayerId, isButtonPressed, showTimeUp, releaseButton, currentAuctionTime])
 
   // Set up real-time subscriptions
   useEffect(() => {
@@ -745,8 +758,13 @@ export function useTimeAuction() {
     loadPlayers()
   }, [room])
 
-  // Format time helper
+  // Format time helper - ensure it handles numbers properly
   const formatTime = (ms: number) => {
+    // Ensure ms is a valid number
+    if (typeof ms !== "number" || isNaN(ms) || ms < 0) {
+      return "00:00.0"
+    }
+
     const totalSeconds = Math.floor(ms / 1000)
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
@@ -768,7 +786,7 @@ export function useTimeAuction() {
     isConnected,
     error,
     isButtonPressed,
-    localTimeBank,
+    currentAuctionTime,
     showTimeUp,
     debugInfo,
     setShowTimeUp,

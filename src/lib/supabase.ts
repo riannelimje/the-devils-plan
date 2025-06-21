@@ -75,6 +75,7 @@ export interface TimeAuctionRoom {
     auctionStartTime: number | null
     phaseTimeout: number | null
     lastPhaseUpdate: number | null
+    winnerBidTime: number | null 
   }
   is_active: boolean
   created_at: string
@@ -94,10 +95,18 @@ export interface TimeAuctionPlayer {
     isEliminated: boolean
     buttonPressTime: number | null
     lastAction: number | null
+    totalTimeUsed: number // cumulative time used across all rounds
   }
   is_host: boolean
   is_connected: boolean
   last_heartbeat: string
   created_at: string
   updated_at: string
+}
+
+// Winner type for better type safety
+export interface RoundWinner {
+  playerId: string
+  playerName: string
+  bidTime: number
 }

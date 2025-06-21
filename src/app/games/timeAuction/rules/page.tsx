@@ -1,461 +1,504 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import Header from "@/components/header"
 import Link from "next/link"
-import { 
-  Trophy, 
-  Users, 
-  Clock, 
-  Target, 
-  Timer, 
-  Eye, 
-  Award, 
-  Brain,
-  ChevronDown,
-  ChevronUp,
-  Play,
-  Crown,
-  Zap,
-  AlertTriangle,
-} from "lucide-react"
+import { ArrowLeft, Users, Clock, Wifi, WifiOff, Trophy, Bug } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import Header from "@/components/header"
+import { useTimeAuction } from "@/hooks/useTimeAuction"
+import { supabase } from "@/lib/supabase"
 
-export default function TimeAuctionRules() {
-  const [expandedSection, setExpandedSection] = useState("overview")
+export default function TimeAuctionGame() {
+  const {
+    room,
+    players,
+    currentPlayerId,
+    isConnected,
+    error,
+    isButtonPressed,
+    currentAuctionTime,
+    showTimeUp,
+    debugInfo,
+    setShowTimeUp,
+    createRoom,
+    joinRoom,
+    startGame,
+    pressButton,
+    releaseButton,
+    continueToNextRound,
+    formatTime,
+    getCountdownTime,
+  } = useTimeAuction()
 
-interface Section {
-    id: string
-    title: string
-    icon: React.ReactNode
-    content: React.ReactNode
-}
+  const [playerName, setPlayerName] = useState("")
+  const [roomCodeInput, setRoomCodeInput] = useState("")
+  const [showDebug, setShowDebug] = useState(false)
+  const [gameSettings, setGameSettings] = useState({
+    totalTimeBank: 10, // minutes
+    totalRounds: 19,
+  })
 
-const toggleSection = (section: string) => {
-    setExpandedSection(expandedSection === section ? "" : section)
-}
+  // Get current player
+  const currentPlayer = players.find((p) => p.id === currentPlayerId)
+  const isHost = currentPlayer?.is_host || false
 
-  const sections = [
-    {
-      id: "overview",
-      title: "Game Overview",
-      icon: <Trophy className="w-5 h-5" />,
-      content: (
-        <div className="space-y-4">
-          <p className="text-gray-300 leading-relaxed">
-            <strong className="text-white">Time Auction</strong> is an intense psychological showdown that challenges memory, nerve, and strategy. Players bid from a limited time bank to win victory tokens over 19 rounds, where every second counts and mental fortitude determines the winner.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-800 p-4 rounded-lg text-center">
-              <Users className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-              <div className="font-bold text-white">Multiple Players</div>
-              <div className="text-sm text-gray-400">Psychological warfare</div>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-lg text-center">
-              <Clock className="w-8 h-8 text-green-400 mx-auto mb-2" />
-              <div className="font-bold text-white">10 Minutes</div>
-              <div className="text-sm text-gray-400">Per player time bank</div>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-lg text-center">
-              <Brain className="w-8 h-8 text-red-400 mx-auto mb-2" />
-              <div className="font-bold text-white">Mental Strategy</div>
-              <div className="text-sm text-gray-400">Memory & nerve</div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      id: "setup",
-      title: "Game Setup",
-      icon: <Timer className="w-5 h-5" />,
-      content: (
-        <div className="space-y-4">
-          <div className="bg-blue-950/30 border border-blue-600 rounded-lg p-4">
-            <h4 className="font-bold text-blue-400 mb-2 flex items-center gap-2">
-              <Timer className="w-4 h-4" />
-              Initial Setup
-            </h4>
-            <ul className="space-y-2 text-gray-300">
-              <li className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                Each player receives a hidden <strong className="text-white">"time bank" of 10 minutes</strong> 
-              </li>
-              <li className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                Time is measured in <strong className="text-white">tenths of a second</strong> for precision
-              </li>
-              <li className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                Game is played over <strong className="text-white">19 rounds</strong> total
-              </li>
-              <li className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                All players start with <strong className="text-white">0 victory tokens</strong>
-              </li>
-            </ul>
-          </div>
-          
-          <div className="bg-gray-800 p-4 rounded-lg">
-            <h4 className="font-bold text-white mb-2">Information Limits</h4>
-            <div className="space-y-2 text-sm text-gray-300">
-              <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4 text-red-400" />
-                <span>Players cannot see their remaining time</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4 text-red-400" />
-                <span>Other players' time banks remain completely hidden</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-yellow-400" />
-                <span>Players must mentally track their spending</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      id: "gameplay",
-      title: "Round Mechanics",
-      icon: <Play className="w-5 h-5" />,
-      content: (
-        <div className="space-y-6">
-          <div className="space-y-4">
-            <div className="bg-gray-800 border-l-4 border-yellow-500 p-4">
-              <h4 className="font-bold text-yellow-400 mb-2 flex items-center gap-2">
-                <span className="bg-yellow-500 text-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
-                Entry Decision (5 seconds)
-              </h4>
-              <p className="text-gray-300 mb-3">
-                All players press and hold a concealed button. During the <strong className="text-white">5-second countdown</strong>, players can choose to opt out by releasing early.
-              </p>
-              <div className="bg-gray-900 p-3 rounded">
-                <div className="text-sm text-gray-400 mb-2">Decision Point:</div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-green-400">Hold button = Enter auction (risk time)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="text-red-400">Release early = Opt out (safe)</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+  // Handle create room
+  const handleCreateRoom = async () => {
+    if (!playerName.trim()) return
 
-            <div className="bg-gray-800 border-l-4 border-blue-500 p-4">
-              <h4 className="font-bold text-blue-400 mb-2 flex items-center gap-2">
-                <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
-                Time Auction Phase
-              </h4>
-              <p className="text-gray-300 mb-3">
-                Participating players' time banks begin <strong className="text-white">counting down</strong>. To bid, release the button when you've spent your desired amount.
-              </p>
-              <div className="bg-gray-900 p-3 rounded">
-                <div className="text-sm text-gray-400 mb-2">Auction in Progress:</div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Timer className="w-4 h-4 text-blue-400" />
-                    <span className="text-gray-300">Time counting down: 598.7s, 598.6s, 598.5s...</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-yellow-400" />
-                    <span className="text-gray-300">Release button = Lock in your bid</span>
-                  </div>
-                </div>
-                <div className="text-xs text-yellow-400 mt-2">
-                  <AlertTriangle className="w-3 h-3 inline mr-1" />
-                  Once spent, time cannot be recovered!
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-800 border-l-4 border-green-500 p-4">
-              <h4 className="font-bold text-green-400 mb-2 flex items-center gap-2">
-                <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
-                Resolution & Winner
-              </h4>
-              <p className="text-gray-300 mb-3">
-                The player who spent the <strong className="text-white">most time</strong> wins the round and receives 1 victory token.
-              </p>
-              <div className="bg-gray-900 p-3 rounded">
-                <div className="text-sm text-gray-400 mb-2">Example Resolution:</div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-6 bg-green-600 rounded text-xs font-bold flex items-center justify-center text-white border-2 border-green-400">4.7s</div>
-                    <Crown className="w-4 h-4 text-yellow-400" />
-                    <span className="text-green-400 font-bold">WINNER! +1 Victory Token</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-6 bg-gray-600 rounded text-xs font-bold flex items-center justify-center text-white">3.2s</div>
-                    <span className="text-gray-400">Second highest bid</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-6 bg-gray-600 rounded text-xs font-bold flex items-center justify-center text-white">1.8s</div>
-                    <span className="text-gray-400">Lower bid</span>
-                  </div>
-                </div>
-                <div className="text-xs text-blue-400 mt-2">
-                  <Eye className="w-3 h-3 inline mr-1" />
-                  Only the winner is revealed - other bids remain anonymous
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      id: "rules",
-      title: "Critical Rules",
-      icon: <AlertTriangle className="w-5 h-5" />,
-      content: (
-        <div className="space-y-4">
-          <div className="bg-red-950/30 border border-red-600 rounded-lg p-4">
-            <h4 className="font-bold text-red-400 mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              Tie Breaking Rule
-            </h4>
-            <div className="bg-gray-800 p-3 rounded">
-              <div className="text-white font-bold mb-1">If bids are tied within one-tenth of a second:</div>
-              <div className="text-red-400 font-bold">NO VICTORY TOKENS are awarded that round</div>
-              <div className="text-xs text-gray-400 mt-1">Example: 3.2s and 3.1s = tie, no winner</div>
-            </div>
-          </div>
-
-          <div className="bg-yellow-950/30 border border-yellow-600 rounded-lg p-4">
-            <h4 className="font-bold text-yellow-400 mb-3 flex items-center gap-2">
-              <Eye className="w-4 h-4" />
-              Information Warfare
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-green-400 font-bold mb-1">Revealed</div>
-                <div className="text-gray-300 text-sm">• Round winners only</div>
-                <div className="text-gray-300 text-sm">• Time during active bidding</div>
-              </div>
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-red-400 font-bold mb-1">Hidden</div>
-                <div className="text-gray-300 text-sm">• Other participants' identities</div>
-                <div className="text-gray-300 text-sm">• Losing bid amounts</div>
-                <div className="text-gray-300 text-sm">• Everyone's remaining time</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-950/30 border border-blue-600 rounded-lg p-4">
-            <h4 className="font-bold text-blue-400 mb-3 flex items-center gap-2">
-              <Brain className="w-4 h-4" />
-              Mental Tracking Required
-            </h4>
-            <div className="space-y-2 text-gray-300">
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                Players must <strong className="text-white">mentally calculate</strong> their remaining time
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                No displays show time except during active auctions
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                Strategic memory becomes crucial for late-game decisions
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      id: "scoring",
-      title: "Final Scoring",
-      icon: <Award className="w-5 h-5" />,
-      content: (
-        <div className="space-y-4">
-          <div className="bg-yellow-950/30 border border-yellow-600 rounded-lg p-4">
-            <h4 className="font-bold text-yellow-400 mb-3 flex items-center gap-2">
-              <Trophy className="w-4 h-4" />
-              After 19 Rounds
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-green-400 font-bold mb-1">Winner Determination</div>
-                <div className="text-gray-300 text-sm">1. Most victory tokens wins</div>
-                <div className="text-gray-300 text-sm">2. If tied: Most time remaining wins</div>
-                <div className="text-gray-300 text-sm">3. If both tied: No piece awarded</div>
-              </div>
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-red-400 font-bold mb-1">Elimination</div>
-                <div className="text-gray-300 text-sm">1. Fewest victory tokens eliminated</div>
-                <div className="text-gray-300 text-sm">2. If tied: Least time remaining eliminated</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-800 p-4 rounded-lg">
-            <h4 className="font-bold text-white mb-3">Scoring Example</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center py-1 border-b border-gray-700">
-                <div className="flex items-center gap-2">
-                  <Crown className="w-4 h-4 text-yellow-400" />
-                  <span className="font-bold">#1 Alice</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-yellow-400 font-bold">8 tokens</div>
-                  <div className="text-xs text-green-400">247.3s remaining</div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-gray-700">
-                <div className="flex items-center gap-2">
-                  <span className="w-4 text-center font-bold">#2</span>
-                  <span>Bob</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-yellow-400 font-bold">7 tokens</div>
-                  <div className="text-xs text-green-400">189.7s remaining</div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-red-600">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400" />
-                  <span className="text-red-400">Charlie (Eliminated)</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-red-400 font-bold">2 tokens</div>
-                  <div className="text-xs text-red-400">15.2s remaining</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      id: "strategy",
-      title: "Strategic Mastery",
-      icon: <Target className="w-5 h-5" />,
-      content: (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-blue-950/30 border border-blue-600 rounded-lg p-4">
-              <h4 className="font-bold text-blue-400 mb-2">Risk vs. Reward</h4>
-              <ul className="space-y-1 text-sm text-gray-300">
-                <li>• Spending more time increases win chances</li>
-                <li>• But depletes your precious time bank</li>
-                <li>• Conservative bidding preserves time</li>
-                <li>• Aggressive plays can backfire</li>
-              </ul>
-            </div>
-            <div className="bg-green-950/30 border border-green-600 rounded-lg p-4">
-              <h4 className="font-bold text-green-400 mb-2">Psychological Warfare</h4>
-              <ul className="space-y-1 text-sm text-gray-300">
-                <li>• Hidden participation creates uncertainty</li>
-                <li>• Winners revealed = psychological pressure</li>
-                <li>• Bluff with participation decisions</li>
-                <li>• Read opponent patterns</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="bg-yellow-950/30 border border-yellow-600 rounded-lg p-4">
-            <h4 className="font-bold text-yellow-400 mb-3">Advanced Strategies</h4>
-            <div className="space-y-3">
-              <div>
-                <div className="font-bold text-white">Time Bank Management</div>
-                <div className="text-sm text-gray-300">Balance aggressive early plays vs. endgame preservation</div>
-              </div>
-              <div>
-                <div className="font-bold text-white">Participation Psychology</div>
-                <div className="text-sm text-gray-300">Use opt-outs strategically to confuse opponents</div>
-              </div>
-              <div>
-                <div className="font-bold text-white">Endgame Planning</div>
-                <div className="text-sm text-gray-300">Remember: time remaining breaks ties - plan accordingly</div>
-              </div>
-              <div>
-                <div className="font-bold text-white">Mental Mathematics</div>
-                <div className="text-sm text-gray-300">Track spending precisely - every tenth of a second matters</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-red-950/30 border border-red-600 rounded-lg p-4">
-            <h4 className="font-bold text-red-400 mb-2 flex items-center gap-2">
-              <Brain className="w-4 h-4" />
-              Mental Fortitude Required
-            </h4>
-            <p className="text-gray-300 text-sm">
-              Success demands nerves of steel, precise mental arithmetic, and the ability to make split-second decisions under extreme pressure while your time bank depletes in real-time.
-            </p>
-          </div>
-        </div>
-      )
+    try {
+      await createRoom(playerName.trim(), gameSettings)
+    } catch (err) {
+      console.error("Failed to create room:", err)
     }
-  ]
+  }
+
+  // Handle join room
+  const handleJoinRoom = async () => {
+    if (!playerName.trim() || !roomCodeInput.trim()) return
+
+    try {
+      await joinRoom(roomCodeInput.trim().toUpperCase(), playerName.trim())
+    } catch (err) {
+      console.error("Failed to join room:", err)
+    }
+  }
+
+  // Get round winner info
+  const getRoundWinner = () => {
+    if (!room?.game_state.roundWinner) return null
+    const winner = players.find((p) => p.id === room.game_state.roundWinner)
+    return winner
+  }
+
+  // Force phase progression (emergency button for host)
+  const forcePhaseProgression = async () => {
+    if (!isHost || !room) return
+
+    try {
+      const now = Date.now()
+      let newPhase = room.game_state.gamePhase
+
+      if (room.game_state.gamePhase === "waiting") {
+        newPhase = "countdown"
+      } else if (room.game_state.gamePhase === "countdown") {
+        newPhase = "auction"
+      } else if (room.game_state.gamePhase === "auction") {
+        newPhase = "roundResults"
+      }
+
+      await supabase
+        .from("rooms")
+        .update({
+          game_state: {
+            ...room.game_state,
+            gamePhase: newPhase,
+            lastPhaseUpdate: now,
+            countdownStartTime: newPhase === "countdown" ? now : room.game_state.countdownStartTime,
+            auctionStartTime: newPhase === "auction" ? now : room.game_state.auctionStartTime,
+          },
+        })
+        .eq("id", room.id)
+    } catch (err) {
+      console.error("Failed to force phase progression:", err)
+    }
+  }
+
+  // Lobby/Connection Screen
+  if (!room?.game_state.gameStarted) {
+    return (
+      <div className="flex flex-col min-h-screen bg-black text-white">
+        <Header />
+
+        <main className="flex-1 container mx-auto px-4 py-12">
+          <div className="mb-6">
+            <Link href="/" className="text-gray-400 hover:text-white flex items-center">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Games
+            </Link>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold mb-4">
+                <span className="text-red-500">Time Auction</span> - Multiplayer
+              </h1>
+              <p className="text-gray-400">Strategic bidding game where players use their time banks to win rounds</p>
+
+              {/* Connection Status */}
+              <div className="flex items-center justify-center gap-2 mt-4">
+                {isConnected ? (
+                  <>
+                    <Wifi className="w-4 h-4 text-green-500" />
+                    <span className="text-green-500">Connected to Supabase</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4 text-red-500" />
+                    <span className="text-red-500">Disconnected</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6">
+                <p className="text-red-200">{error}</p>
+              </div>
+            )}
+
+            {room ? (
+              // In Room - Lobby
+              <Card className="bg-gray-900 border-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    Room: {room.room_code}
+                    {isHost && <Badge className="bg-yellow-600">Host</Badge>}
+                  </CardTitle>
+                  <CardDescription>Share this room code with other players</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-bold mb-2">Players ({players.length})</h3>
+                      <div className="space-y-2">
+                        {players.map((player) => (
+                          <div key={player.id} className="flex items-center justify-between p-2 bg-gray-800 rounded">
+                            <span>
+                              {player.player_name}
+                              {player.id === currentPlayerId && " (You)"}
+                            </span>
+                            <div className="flex gap-2">
+                              {player.is_host && <Badge variant="outline">Host</Badge>}
+                              {player.is_connected && <Badge className="bg-green-600">Online</Badge>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Time Bank:</span>
+                        <span className="ml-2 text-white">{formatTime(room.game_settings.totalTimeBank)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Rounds:</span>
+                        <span className="ml-2 text-white">{room.game_settings.totalRounds}</span>
+                      </div>
+                    </div>
+
+                    {isHost && (
+                      <Button
+                        onClick={startGame}
+                        className="w-full bg-red-600 hover:bg-red-700"
+                        disabled={players.length < 2}
+                      >
+                        Start Game ({players.length}/2+ players)
+                      </Button>
+                    )}
+
+                    {!isHost && <div className="text-center text-gray-400">Waiting for host to start the game...</div>}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              // Join/Create Room
+              <Tabs defaultValue="join" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-gray-900">
+                  <TabsTrigger value="join">Join Game</TabsTrigger>
+                  <TabsTrigger value="create">Create Game</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="join" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="playerName">Your Name</Label>
+                      <Input
+                        id="playerName"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter your name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="roomCode">Room Code</Label>
+                      <Input
+                        id="roomCode"
+                        value={roomCodeInput}
+                        onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter room code"
+                      />
+                    </div>
+                    <Button onClick={handleJoinRoom} className="w-full bg-blue-600 hover:bg-blue-700">
+                      Join Game
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="create" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="hostName">Your Name</Label>
+                      <Input
+                        id="hostName"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter your name"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Time Bank (minutes)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={gameSettings.totalTimeBank}
+                        onChange={(e) =>
+                          setGameSettings((prev) => ({
+                            ...prev,
+                            totalTimeBank: Number.parseInt(e.target.value) || 10,
+                          }))
+                        }
+                        className="bg-gray-800 border-gray-700"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Each player starts with this much time</p>
+                    </div>
+
+                    <div>
+                      <Label>Total Rounds</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={gameSettings.totalRounds}
+                        onChange={(e) =>
+                          setGameSettings((prev) => ({
+                            ...prev,
+                            totalRounds: Number.parseInt(e.target.value) || 19,
+                          }))
+                        }
+                        className="bg-gray-800 border-gray-700"
+                      />
+                    </div>
+
+                    <Button onClick={handleCreateRoom} className="w-full bg-red-600 hover:bg-red-700">
+                      Create Game
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // Game Interface
+  const activePlayers = players.filter((p) => !p.player_data.isEliminated)
+  const winner = getRoundWinner()
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
       <Header />
-      
-      <main className="flex-1 container mx-auto px-4 py-12">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">
-            <span className="text-red-500">Time Auction</span> - Game Rules
-          </h1>
-          <p className="text-gray-400 max-w-2xl mx-auto">
-            Master the ultimate test of psychological warfare and strategic time management. 
-            Every second counts in this intense battle of nerves and mental fortitude!
-          </p>
-        </div>
 
-        <div className="space-y-4 max-w-4xl mx-auto">
-          {sections.map((section) => (
-          <Card key={section.id} className="bg-gray-900 border-gray-800">
-            <CardHeader 
-              className="cursor-pointer hover:bg-gray-800/50 transition-colors"
-              onClick={() => toggleSection(section.id)}
-            >
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="text-red-400">
-                    {section.icon}
-                  </div>
-                  <span>{section.title}</span>
-                </div>
-                <div className="text-gray-400">
-                  {expandedSection === section.id ? (
-                    <ChevronUp className="w-5 h-5" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" />
-                  )}
-                </div>
-              </CardTitle>
-            </CardHeader>
-            {expandedSection === section.id && (
-              <CardContent>
-                {section.content}
-              </CardContent>
-            )}
-          </Card>
-          ))}
-        </div>
-
-        <div className="mt-8 text-center max-w-4xl mx-auto">
-          <div className="bg-red-950/30 border border-red-600 rounded-lg p-6">
-            <h3 className="text-xl font-bold text-red-400 mb-2">Ready for the Ultimate Challenge?</h3>
-            <p className="text-gray-300 mb-4">
-              Test your nerve, strategy, and mental fortitude in this psychological battle!
-            </p>
-            <Link href="/games/timeAuction">
-            <Button className="bg-red-600 hover:bg-red-700">
-              Enter Time Auction
-            </Button>
-            </Link>
+      {/* Time's Up Dialog */}
+      <Dialog open={showTimeUp} onOpenChange={setShowTimeUp}>
+        <DialogContent className="bg-gray-900 border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-red-500 text-center text-2xl">Time's Up!</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4">
+            <p className="text-gray-300">Your time bank has been exhausted.</p>
+            <p className="text-gray-300">You have been automatically eliminated from the game.</p>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Round Results Dialog */}
+      <Dialog open={room?.game_state.gamePhase === "roundResults"} onOpenChange={() => {}}>
+        <DialogContent className="bg-gray-900 border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl">Round {room?.game_state.currentRound} Results</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4">
+            {winner ? (
+              <div>
+                <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-yellow-500 mb-2">{winner.player_name} Wins!</h3>
+                <p className="text-gray-300">Time spent: {formatTime(room.game_state.winnerBidTime || 0)}</p>
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-xl font-bold text-gray-500 mb-2">No Winner</h3>
+                <p className="text-gray-300">Tie or no valid bids</p>
+              </div>
+            )}
+            {isHost && (
+              <Button onClick={continueToNextRound} className="mt-4 bg-blue-600 hover:bg-blue-700">
+                {room?.game_state.currentRound >= room?.game_settings.totalRounds ? "End Game" : "Next Round"}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <main className="flex-1 container mx-auto px-4 py-12">
+        <div className="mb-6 flex justify-between items-center">
+          <Link href="/" className="text-gray-400 hover:text-white flex items-center">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Games
+          </Link>
+          <div className="flex items-center gap-2 text-sm">
+            <span>Room: {room.room_code}</span>
+            <Wifi className="w-4 h-4 text-green-500" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDebug(!showDebug)}
+              className="text-gray-400 hover:text-white"
+            >
+              <Bug className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Debug Info */}
+        {showDebug && (
+          <Card className="bg-gray-900 border-gray-800 mb-6">
+            <CardHeader>
+              <CardTitle className="text-sm">Debug Info</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs space-y-1 font-mono">
+                <div>Phase: {debugInfo.phase}</div>
+                <div>Countdown Start: {debugInfo.countdownStart}</div>
+                <div>Auction Start: {debugInfo.auctionStart}</div>
+                <div>Last Update: {debugInfo.lastUpdate}</div>
+                <div>Timeout: {debugInfo.timeout}</div>
+                <div>Now: {debugInfo.now}</div>
+                <div>Connected Players: {players.filter((p) => p.is_connected).length}</div>
+                <div>Active Players: {activePlayers.length}</div>
+                <div>Current Auction Time: {formatTime(currentAuctionTime)}</div>
+                <div>Current Auction Time (raw): {currentAuctionTime}ms</div>
+              </div>
+              {isHost && (
+                <Button onClick={forcePhaseProgression} className="mt-2 bg-orange-600 hover:bg-orange-700" size="sm">
+                  Force Next Phase
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Game Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-2">Time Auction - Round {room.game_state.currentRound}</h1>
+          <div className="flex justify-center gap-4 text-sm">
+            <Badge variant="outline" className="border-blue-500 text-blue-400">
+              <Clock className="w-4 h-4 mr-1" />
+              Round {room.game_state.currentRound}/{room.game_settings.totalRounds}
+            </Badge>
+            <Badge variant="outline" className="border-green-500 text-green-400">
+              <Users className="w-4 h-4 mr-1" />
+              {activePlayers.length} Players Active
+            </Badge>
+          </div>
+        </div>
+
+        {/* Game Controls */}
+        <div className="max-w-4xl mx-auto">
+          <Card className="bg-gray-900 border-gray-800 mb-6">
+            <CardHeader>
+              <CardTitle className="text-center">
+                {room.game_state.gamePhase === "waiting" && "Press and hold the button when ready"}
+                {room.game_state.gamePhase === "countdown" && `Countdown: ${getCountdownTime().toFixed(1)}s`}
+                {room.game_state.gamePhase === "auction" && "Auction in progress - Release to bid!"}
+              </CardTitle>
+              {room.game_state.gamePhase === "auction" && (
+                <CardDescription className="text-center text-3xl font-mono text-yellow-400">
+                  {formatTime(currentAuctionTime)}
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="flex flex-col items-center">
+              {/* Big Red Button */}
+              <div className="relative">
+                <button
+                  className={`w-64 h-64 rounded-full text-white font-bold text-2xl transition-all duration-150 ${
+                    isButtonPressed
+                      ? "bg-red-700 shadow-inner transform scale-95"
+                      : "bg-red-600 hover:bg-red-500 shadow-lg transform scale-100"
+                  } ${
+                    currentPlayer?.player_data.isEliminated || currentPlayer?.player_data.hasOptedOut
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                  onMouseDown={pressButton}
+                  onMouseUp={releaseButton}
+                  onMouseLeave={releaseButton}
+                  disabled={
+                    currentPlayer?.player_data.isEliminated ||
+                    currentPlayer?.player_data.hasOptedOut ||
+                    room.game_state.gamePhase === "roundResults"
+                  }
+                >
+                  {isButtonPressed ? "HOLDING" : "PRESS & HOLD"}
+                </button>
+                <div className="text-center mt-4 text-gray-400">
+                  <p>Click and hold or use SPACEBAR</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Players Status */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle>Players</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {players.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`p-4 rounded-lg border ${
+                      player.player_data.isEliminated
+                        ? "bg-red-950/30 border-red-800"
+                        : player.id === currentPlayerId
+                          ? "bg-blue-950/30 border-blue-600"
+                          : "bg-gray-800 border-gray-700"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-bold text-white">
+                        {player.player_name} {player.id === currentPlayerId && "(You)"}
+                      </h3>
+                      <div className="flex gap-1">
+                        {player.player_data.isEliminated && <Badge variant="destructive">Eliminated</Badge>}
+                        {player.is_host && <Badge variant="outline">Host</Badge>}
+                        {!player.is_connected && <Badge variant="destructive">Offline</Badge>}
+                      </div>
+                    </div>
+                    <div className="text-sm space-y-1 text-gray-300">
+                      <div className="text-white">
+                        Victory Tokens: <span className="text-yellow-400">{player.player_data.victoryTokens}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
