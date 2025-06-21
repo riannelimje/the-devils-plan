@@ -13,6 +13,7 @@ export function useTimeAuction() {
   const [currentAuctionTime, setCurrentAuctionTime] = useState(0) // Time counting up from 0
   const [showTimeUp, setShowTimeUp] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>({})
+  const [localTimeBank, setLocalTimeBank] = useState(0)
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null)
@@ -349,7 +350,7 @@ export function useTimeAuction() {
           .eq("id", currentPlayerId)
 
         await logAction("button_release", { phase: "countdown", optOut: true })
-        console.log("Opted out during countdown")
+        console.log("❌ Opted out during countdown")
       } else if (room.game_state.gamePhase === "auction") {
         // Place bid during auction
         const auctionStartTime = room.game_state.auctionStartTime!
@@ -779,6 +780,14 @@ export function useTimeAuction() {
     return Math.max(0, 5 - elapsed)
   }
 
+  // Update the localTimeBank when current player data changes
+  useEffect(() => {
+    const currentPlayer = players.find((p) => p.id === currentPlayerId)
+    if (currentPlayer) {
+      setLocalTimeBank(currentPlayer.player_data.timeBank)
+    }
+  }, [players, currentPlayerId])
+
   return {
     room,
     players,
@@ -789,6 +798,7 @@ export function useTimeAuction() {
     currentAuctionTime,
     showTimeUp,
     debugInfo,
+    localTimeBank, 
     setShowTimeUp,
     createRoom,
     joinRoom,
