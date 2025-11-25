@@ -240,15 +240,20 @@ export function useTimeAuction2() {
       })
       .eq("id", currentPlayerId)
 
-    // If this is the first press in waiting phase, start countdown
-    if (room.game_state.gamePhase === "waiting") {
-      const allPlayers = await supabase.from("players").select("*").eq("room_id", room.id)
+    // If in waiting phase, check if all players are now holding
+    if (room.game_state.gamePhase === "waiting" && isHost) {
+      // Wait a bit for the database to update
+      setTimeout(async () => {
+        const { data: allPlayers } = await supabase
+          .from("players")
+          .select("*")
+          .eq("room_id", room.id)
+          .eq("is_connected", true)
 
-      if (allPlayers.data && allPlayers.data.every((p: Player) => p.player_data.isHolding)) {
-        if (isHost) {
+        if (allPlayers && allPlayers.length > 0 && allPlayers.every((p: Player) => p.player_data.isHolding)) {
           startCountdown()
         }
-      }
+      }, 200)
     }
   }
 
@@ -275,6 +280,9 @@ export function useTimeAuction2() {
 
     const newTimeRemaining = Math.max(0, currentPlayer.player_data.timeRemaining - timeSpent)
 
+    // Only mark as abandoned if released during countdown (not during auction)
+    const wasAbandoned = room.game_state.gamePhase === "countdown"
+
     // Update player
     await supabase
       .from("players")
@@ -284,7 +292,7 @@ export function useTimeAuction2() {
           isHolding: false,
           holdStartTime: null,
           timeRemaining: newTimeRemaining,
-          abandonedCountdown: room.game_state.gamePhase === "countdown",
+          abandonedCountdown: wasAbandoned,
         },
       })
       .eq("id", currentPlayerId)
@@ -331,6 +339,25 @@ export function useTimeAuction2() {
       const newCountdown = room.game_state.countdown - 1
 
       if (newCountdown <= 0) {
+        // Mark players who aren't holding as abandoned before starting auction
+        const { data: currentPlayers } = await supabase.from("players").select("*").eq("room_id", room.id)
+        
+        if (currentPlayers) {
+          for (const player of currentPlayers) {
+            if (!player.player_data.isHolding) {
+              await supabase
+                .from("players")
+                .update({
+                  player_data: {
+                    ...player.player_data,
+                    abandonedCountdown: true,
+                  },
+                })
+                .eq("id", player.id)
+            }
+          }
+        }
+
         // Start auction
         await supabase
           .from("rooms")
