@@ -66,7 +66,14 @@ export default function Home() {
               description="Bid from a limited time bank and become the last standing player to win! - this game is still in development"
               players="2+"
               image="/images/game3.png"
-              href="/games/timeAuction"
+              href="/games/timeAuction2"
+            />
+             <GameCard
+              title={<span className="text-red-500">Wall Baduk</span>}
+              description="Wall Baduk aka Wall Go - this game is still in development"
+              players="2+"
+              image="/images/game4.png"
+              href="/games/wallBaduk"
             />
             </div>
         </section>

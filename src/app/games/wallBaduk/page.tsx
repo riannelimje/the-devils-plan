@@ -806,8 +806,7 @@ export default function WallBadukGame() {
             <span className="text-red-500">Wall Baduk</span>
           </h1>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Strategic territorial game where players move pieces and build colored walls to enclose the largest
-            territory
+            Strategic territorial game where players move pieces and build coloured walls to enclose the largest territory
           </p>
         </div>
 
