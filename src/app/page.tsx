@@ -31,12 +31,14 @@ export default function Home() {
               {/* // i can lead this to the first game ig  */}
             </Button>
             </Link>
+            <Link href="https://www.netflix.com/sg/title/81653386" target="_blank" rel="noopener noreferrer">
             <Button 
               variant="outline" 
               className="border-red-500 text-red-500 hover:bg-[#7102BF] hover:border-none"
             >
               Learn More
             </Button>
+            </Link>
           </div>
         </section>
         {/* Games Section */}
