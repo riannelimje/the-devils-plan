@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { ArrowLeft, Clock, Users, Trophy, Play, Hand } from "lucide-react"
+import { ArrowLeft, Clock, Users, Trophy, Play, Hand, Wifi, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Header from "@/components/header"
 import { useTimeAuction2 } from "../../../hooks/useTimeAuction2"
@@ -175,123 +176,194 @@ export default function TimeAuction2Game() {
       </Dialog>
 
       <main className="flex-1 container mx-auto px-4 py-12">
-        <div className="mb-6 flex justify-between items-center">
-          <Link href="/" className="text-gray-400 hover:text-white flex items-center">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Games
-          </Link>
-          <Button onClick={() => setShowRules(true)} variant="outline" size="sm">
-            View Rules
-          </Button>
-        </div>
-
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">
-            <span className="text-purple-500">Time Auction</span>
-          </h1>
-          <p className="text-gray-400 max-w-2xl mx-auto">
-            Bid with time to win tokens. Press and hold to bid, release to lock in your time.
-          </p>
-        </div>
-
-        {error && (
-          <div className="max-w-2xl mx-auto mb-6">
-            <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-200">{error}</div>
+        {!room && (
+          <div className="mb-6">
+            <Link href="/" className="text-gray-400 hover:text-white flex items-center">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Games
+            </Link>
           </div>
         )}
 
-        {/* Lobby */}
-        {!room && (
-          <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Create Room */}
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle>Create Room</CardTitle>
-                <CardDescription>Start a new Time Auction game</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="create-name">Your Name</Label>
-                  <Input
-                    id="create-name"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="bg-gray-800 border-gray-700"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="time-bank">Time Bank (minutes)</Label>
-                  <Input
-                    id="time-bank"
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={gameSettings.totalTimeBank}
-                    onChange={(e) =>
-                      setGameSettings((prev) => ({ ...prev, totalTimeBank: Number(e.target.value) }))
-                    }
-                    className="bg-gray-800 border-gray-700"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="total-rounds">Total Rounds</Label>
-                  <Input
-                    id="total-rounds"
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={gameSettings.totalRounds}
-                    onChange={(e) => setGameSettings((prev) => ({ ...prev, totalRounds: Number(e.target.value) }))}
-                    className="bg-gray-800 border-gray-700"
-                  />
-                </div>
-                <Button
-                  onClick={() => createRoom(playerName, gameSettings)}
-                  disabled={!playerName.trim()}
-                  className="w-full bg-purple-600 hover:bg-purple-700"
-                >
-                  Create Room
-                </Button>
-              </CardContent>
-            </Card>
+        {/* Landing/Lobby Screen */}
+        {!room?.game_state.gameStarted && (
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold mb-4">
+                <span className="text-red-500">Time Auction</span> - Multiplayer
+              </h1>
+              <p className="text-gray-400">Strategic bidding game where players use their time banks to win rounds</p>
+              <Link href="/games/timeAuction2/rules" target="_blank" className="text-blue-400 hover:underline mt-2 inline-block">
+                View Game Rules
+              </Link>
 
-            {/* Join Room */}
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle>Join Room</CardTitle>
-                <CardDescription>Enter a room code to join</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="join-name">Your Name</Label>
-                  <Input
-                    id="join-name"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="bg-gray-800 border-gray-700"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="room-code">Room Code</Label>
-                  <Input
-                    id="room-code"
-                    value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                    placeholder="Enter room code"
-                    className="bg-gray-800 border-gray-700"
-                    maxLength={6}
-                  />
-                </div>
-                <Button
-                  onClick={() => joinRoom(roomCode, playerName)}
-                  disabled={!playerName.trim() || !roomCode.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  Join Room
-                </Button>
-              </CardContent>
-            </Card>
+              {/* Connection Status */}
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <Wifi className="w-4 h-4 text-green-500" />
+                <span className="text-green-500">Connected to Supabase</span>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6">
+                <p className="text-red-200">{error}</p>
+              </div>
+            )}
+
+            {room ? (
+              // In Room - Lobby
+              <Card className="bg-gray-900 border-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    Room: {room.room_code}
+                    {isHost && <Badge className="bg-yellow-600">Host</Badge>}
+                  </CardTitle>
+                  <CardDescription>Share this room code with other players</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-bold mb-2">Players ({players.length})</h3>
+                      <div className="space-y-2">
+                        {players.map((player) => (
+                          <div key={player.id} className="flex items-center justify-between p-2 bg-gray-800 rounded">
+                            <span>
+                              {player.player_name}
+                              {player.id === currentPlayerId && " (You)"}
+                            </span>
+                            <div className="flex gap-2">
+                              {player.is_host && <Badge variant="outline">Host</Badge>}
+                              {player.is_connected && <Badge className="bg-green-600">Online</Badge>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Time Bank:</span>
+                        <span className="ml-2 text-white">{gameSettings.totalTimeBank} min</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Rounds:</span>
+                        <span className="ml-2 text-white">{room.game_settings.totalRounds}</span>
+                      </div>
+                    </div>
+
+                    {isHost && (
+                      <Button
+                        onClick={startGame}
+                        className="w-full bg-red-600 hover:bg-red-700"
+                        disabled={players.length < 2}
+                      >
+                        Start Game ({players.length}/2+ players)
+                      </Button>
+                    )}
+
+                    {!isHost && <div className="text-center text-gray-400">Waiting for host to start the game...</div>}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              // Join/Create Room
+              <Tabs defaultValue="join" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-gray-900">
+                  <TabsTrigger value="join">Join Game</TabsTrigger>
+                  <TabsTrigger value="create">Create Game</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="join" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="playerName">Your Name</Label>
+                      <Input
+                        id="playerName"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter your name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="roomCode">Room Code</Label>
+                      <Input
+                        id="roomCode"
+                        value={roomCode}
+                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter room code"
+                        maxLength={6}
+                      />
+                    </div>
+                    <Button
+                      onClick={() => joinRoom(roomCode, playerName)}
+                      disabled={!playerName.trim() || !roomCode.trim()}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      Join Game
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="create" className="bg-gray-900 border border-gray-800 rounded-b-xl p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="hostName">Your Name</Label>
+                      <Input
+                        id="hostName"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter your name"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Time Bank (minutes)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={gameSettings.totalTimeBank}
+                        onChange={(e) =>
+                          setGameSettings((prev) => ({
+                            ...prev,
+                            totalTimeBank: Number.parseInt(e.target.value) || 10,
+                          }))
+                        }
+                        className="bg-gray-800 border-gray-700"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Each player starts with this much time</p>
+                    </div>
+
+                    <div>
+                      <Label>Total Rounds</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={gameSettings.totalRounds}
+                        onChange={(e) =>
+                          setGameSettings((prev) => ({
+                            ...prev,
+                            totalRounds: Number.parseInt(e.target.value) || 19,
+                          }))
+                        }
+                        className="bg-gray-800 border-gray-700"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={() => createRoom(playerName, gameSettings)}
+                      disabled={!playerName.trim()}
+                      className="w-full bg-red-600 hover:bg-red-700"
+                    >
+                      Create Game
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
         )}
 
@@ -301,7 +373,7 @@ export default function TimeAuction2Game() {
             {/* Room Header */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-4">
-                <Badge variant="outline" className="border-purple-500 text-purple-400 text-lg px-4 py-2">
+                <Badge variant="outline" className="border-red-500 text-red-400 text-lg px-4 py-2">
                   Room: {room.room_code}
                 </Badge>
                 <Badge variant="outline" className="border-blue-500 text-blue-400">
@@ -314,9 +386,18 @@ export default function TimeAuction2Game() {
                   </Badge>
                 )}
               </div>
-              <Button onClick={leaveRoom} variant="outline" size="sm">
-                Leave Room
-              </Button>
+              <div className="flex gap-2">
+                {room.game_state?.gameStarted && (
+                  <Link href="/games/timeAuction2/rules" target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm">
+                      View Rules
+                    </Button>
+                  </Link>
+                )}
+                <Button onClick={leaveRoom} variant="outline" size="sm">
+                  Leave Room
+                </Button>
+              </div>
             </div>
 
             {/* Waiting Room */}
@@ -383,12 +464,12 @@ export default function TimeAuction2Game() {
                             .map((player) => (
                               <tr
                                 key={player.id}
-                                className={`border-b border-gray-800 ${player.id === currentPlayerId ? "bg-purple-900/30" : ""}`}
+                                className={`border-b border-gray-800 ${player.id === currentPlayerId ? "bg-red-900/30" : ""}`}
                               >
                                 <td className="py-3 px-4 font-semibold">
                                   {player.player_name}
                                   {player.id === currentPlayerId && (
-                                    <Badge className="ml-2 bg-purple-600">You</Badge>
+                                    <Badge className="ml-2 bg-red-600">You</Badge>
                                   )}
                                 </td>
                                 <td className="text-right py-3 px-4">
@@ -417,7 +498,7 @@ export default function TimeAuction2Game() {
                     {/* Waiting Phase */}
                     {gamePhase === "waiting" && (
                       <div className="text-center py-12">
-                        <Clock className="w-16 h-16 mx-auto mb-4 text-purple-500" />
+                        <Clock className="w-16 h-16 mx-auto mb-4 text-red-500" />
                         <p className="text-xl mb-2">Round {currentRound}</p>
                         <p className="text-gray-400">Press and hold the button or spacebar when ready</p>
                       </div>
@@ -426,8 +507,8 @@ export default function TimeAuction2Game() {
                     {/* Countdown Phase */}
                     {isCountdownPhase && (
                       <div className="text-center py-12">
-                        <div className="text-8xl font-bold mb-4 text-purple-500">{countdown}</div>
-                        <p className="text-xl text-yellow-400">Release button to abandon auction (no time cost)</p>
+                        <div className="text-8xl font-bold mb-4 text-red-500">{countdown}</div>
+                        <p className="text-xl text-gray-300">Keep holding! Release now to abandon auction (no time spent)</p>
                         <p className="text-gray-400 mt-2">After countdown, your time starts counting down</p>
                       </div>
                     )}
@@ -442,7 +523,7 @@ export default function TimeAuction2Game() {
                           {isPressingButton ? "You are bidding..." : "You are not bidding"}
                         </p>
                         <p className="text-gray-400 mb-6">Release button to stop bidding</p>
-                        <div className="text-6xl font-mono font-bold text-purple-400">
+                        <div className="text-6xl font-mono font-bold text-red-400">
                           {formatTime(elapsedTime)}
                         </div>
                         <p className="text-sm text-gray-500 mt-2">Elapsed time this round</p>
