@@ -26,7 +26,9 @@ export default function Header() {
             About
           </Link>
         </nav>
-        <ThemeToggle />
+        {/* TODO: FIX LIGHT DARK MODE */}
+        {/* the white is very 刺眼 remind me to fix this and apply to all pages such that it works */}
+        {/* <ThemeToggle /> */}
         {/* im thinking if i n</div>eed a sign in */}
         {/* <Button variant="outline" className="border-red-500 text-red-500 hover:bg-red-950">
           Sign In 
