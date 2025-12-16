@@ -556,9 +556,9 @@ export default function About() {
             className="text-center mt-8 text-xs font-mono text-gray-700 hover:text-red-500 transition-colors cursor-help"
             title="You found it!"
           >
-            // THE GAME IS NEVER OVER 
+            {"// THE GAME IS NEVER OVER"}
             <br/>
-            // OPEN YOUR CONSOLE LOG TO UNLOCK THE SECRET
+            {"// OPEN YOUR CONSOLE LOG TO UNLOCK THE SECRET"}
           </motion.div>
 
           {/* Password input field - shown after binary is revealed */}
@@ -571,7 +571,7 @@ export default function About() {
             >
               <div className="text-center">
                 <p className="text-sm font-mono text-green-500 mb-2">
-                  // ENTER DECODED PASSWORD
+                  {"// ENTER DECODED PASSWORD"}
                 </p>
                 <div className="relative">
                   <input
