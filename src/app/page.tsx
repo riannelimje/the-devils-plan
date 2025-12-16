@@ -53,6 +53,7 @@ export default function Home() {
               players="1"
               image="/images/game1.png" // remind me to find a better image
               href="/games/knightsTour"
+              gameMode="single"
             />
             <GameCard
               title={<span className="text-red-500">Remove One</span>}
@@ -60,6 +61,7 @@ export default function Home() {
               players="2-8"
               image="/images/game2.png"
               href="/games/removeOne"
+              gameMode="online"
             />
             <GameCard
               title={<span className="text-red-500">Time Auction</span>}
@@ -67,6 +69,7 @@ export default function Home() {
               players="2+"
               image="/images/game3.png"
               href="/games/timeAuction2"
+              gameMode="online"
             />
              <GameCard
               title={<span className="text-red-500">Wall Baduk</span>}
@@ -74,6 +77,7 @@ export default function Home() {
               players="2+"
               image="/images/game4.png"
               href="/games/wallBaduk"
+              gameMode="local"
             />
             </div>
         </section>
