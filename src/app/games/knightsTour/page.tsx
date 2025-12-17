@@ -278,7 +278,7 @@ export default function KnightsTourGame() {
                       <div className="h-0.5 w-32 mx-auto bg-gradient-to-r from-transparent via-red-500 to-transparent mb-6" />
                       
                       <p className="text-gray-400 mb-8 font-mono text-sm">
-                        // Navigate the board. Visit every square once. Fail and the mission ends.
+                        {"// Navigate the board. Visit every square once. Fail and the mission ends."}
                       </p>
 
                       {/* Stats Display */}
@@ -601,7 +601,7 @@ export default function KnightsTourGame() {
                         <p className="text-sm leading-relaxed">
                           First documented by Leonhard Euler (1759). Extensively studied in mathematics and computer science as a Hamiltonian path problem.
                           <br/><br/>
-                          <span className="text-red-400">// Origin: Hidden stage for the living area</span>
+                          <span className="text-red-400">{"// Origin: Hidden stage for the living area"}</span>
                         </p>
                       </div>
                     </div>
