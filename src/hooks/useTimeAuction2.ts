@@ -250,10 +250,13 @@ export function useTimeAuction2() {
           .eq("room_id", room.id)
           .eq("is_connected", true)
 
-        if (allPlayers && allPlayers.length > 0 && allPlayers.every((p: Player) => p.player_data.isHolding)) {
-          startCountdown()
+        if (allPlayers && allPlayers.length >= room.game_settings.minPlayers) {
+          const allHolding = allPlayers.every((p: Player) => p.player_data.isHolding)
+          if (allHolding) {
+            startCountdown()
+          }
         }
-      }, 200)
+      }, 300)
     }
   }
 
@@ -465,24 +468,32 @@ export function useTimeAuction2() {
     // Get all bids
     const bids = room.game_state.bids
 
-    // Find winner (highest bid, but check for ties)
+    // Find winner (highest bid among players who participated)
     let winner: string | null = null
     let maxBid = 0
-    let tieExists = false
+    let tieCount = 0
 
     const bidEntries = Object.entries(bids)
+    
+    // Find the maximum bid
     for (const [playerId, bid] of bidEntries) {
       if (bid > maxBid) {
         maxBid = bid
-        winner = playerId
-        tieExists = false
-      } else if (bid === maxBid && bid > 0) {
-        tieExists = true
       }
     }
 
-    // If tie, no winner
-    if (tieExists) {
+    // Count how many players have the max bid (check for ties)
+    if (maxBid > 0) {
+      for (const [playerId, bid] of bidEntries) {
+        if (bid === maxBid) {
+          tieCount++
+          winner = playerId
+        }
+      }
+    }
+
+    // If more than one player has the max bid, it's a tie (no winner)
+    if (tieCount > 1) {
       winner = null
     }
 
