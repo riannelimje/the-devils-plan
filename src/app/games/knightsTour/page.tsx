@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit, Crown, Target, Trophy, AlertTriangle, Lock } from 'lucide-react'
+import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit, Crown, Target, Trophy, AlertTriangle, Lock, Clock, Play, Pause } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 import { Button } from "@/components/ui/button"
@@ -29,8 +29,30 @@ export default function KnightsTourGame() {
   const [showBlindModeQuiz, setShowBlindModeQuiz] = useState(false)
   const [quizAnswer, setQuizAnswer] = useState("")
   const [quizError, setQuizError] = useState("")
+  const [timerRunning, setTimerRunning] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
   
   const isComplete = visited.size === boardSize * boardSize
+
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    if (timerRunning && !isComplete) {
+      interval = setInterval(() => {
+        setElapsedTime(prev => prev + 0.01)
+      }, 10)
+    }
+
+    // Auto-stop when puzzle is complete
+    if (isComplete && timerRunning) {
+      setTimerRunning(false)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [timerRunning, isComplete])
 
   function handleSquareClick(row: number, col: number) {
     // Don't allow moves if game is over
@@ -49,6 +71,11 @@ export default function KnightsTourGame() {
         setGameOver(true)
         setGameResult("Game Over! Invalid move in Blind Mode.")
         return
+      }
+      
+      // Auto-start timer on first move
+      if (path.length === 1 && !timerRunning) {
+        setTimerRunning(true)
       }
       
       // Move is valid, update state
@@ -83,6 +110,11 @@ export default function KnightsTourGame() {
     } else {
       // Regular mode logic
       if (isLegalMove && !visited.has(key)) {
+        // Auto-start timer on first move
+        if (path.length === 1 && !timerRunning) {
+          setTimerRunning(true)
+        }
+        
         const newVisited = new Set(visited)
         newVisited.add(key)
         setVisited(newVisited)
@@ -103,6 +135,15 @@ export default function KnightsTourGame() {
     setShowInvalidMove(false)
     setGameOver(false)
     setGameResult("")
+    setTimerRunning(false)
+    setElapsedTime(0)
+  }
+
+  function formatTime(seconds: number) {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    const centisecs = Math.floor((seconds % 1) * 100)
+    return `${mins}:${secs.toString().padStart(2, '0')}.${centisecs.toString().padStart(2, '0')}`
   }
 
   function handleSizeChange(value: string) {
@@ -241,7 +282,7 @@ export default function KnightsTourGame() {
                       </p>
 
                       {/* Stats Display */}
-                      <div className="flex justify-center gap-4 mb-8">
+                      <div className="flex justify-center gap-4 mb-8 flex-wrap">
                         <div className="bg-black/40 border border-red-900/30 rounded-lg px-4 py-2">
                           <div className="text-xs text-gray-500 font-mono">MOVES</div>
                           <div className="text-xl font-bold text-red-400">{path.length}</div>
@@ -254,6 +295,27 @@ export default function KnightsTourGame() {
                           <div className="text-xs text-gray-500 font-mono">PROGRESS</div>
                           <div className="text-xl font-bold text-red-400">
                             {Math.floor((visited.size / (boardSize * boardSize)) * 100)}%
+                          </div>
+                        </div>
+                        <div className="bg-black/40 border border-red-900/30 rounded-lg px-4 py-2 min-w-[140px]">
+                          <div className="text-xs text-gray-500 font-mono flex items-center justify-between mb-1">
+                            <span>TIME</span>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => setTimerRunning(!timerRunning)}
+                              disabled={isComplete}
+                              className="disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {timerRunning ? (
+                                <Pause className="w-3 h-3 text-red-400" />
+                              ) : (
+                                <Play className="w-3 h-3 text-red-400" />
+                              )}
+                            </motion.button>
+                          </div>
+                          <div className="text-xl font-bold text-red-400 font-mono">
+                            {formatTime(elapsedTime)}
                           </div>
                         </div>
                       </div>
@@ -326,6 +388,11 @@ export default function KnightsTourGame() {
                             <p className="text-sm text-gray-300 font-mono">
                               Tour completed in {path.length} moves
                             </p>
+                            {elapsedTime > 0 && (
+                              <p className="text-sm text-gray-300 font-mono mt-1">
+                                Time: {formatTime(elapsedTime)}
+                              </p>
+                            )}
                           </div>
                         </motion.div>
                       )}
