@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { ArrowLeft, Clock, Users, Trophy, Play, Hand, Wifi, WifiOff } from "lucide-react"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -177,11 +178,16 @@ export default function TimeAuction2Game() {
 
       <main className="flex-1 container mx-auto px-4 py-12">
         {!room && (
-          <div className="mb-6">
-            <Link href="/" className="text-gray-400 hover:text-white flex items-center">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Games
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="mb-8"
+          >
+            <Link href="/" className="group text-gray-400 hover:text-red-400 flex items-center gap-2 transition-colors">
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
+              <span className="font-mono text-sm">RETURN TO ARENA</span>
             </Link>
-          </div>
+          </motion.div>
         )}
 
         {/* Landing/Lobby Screen */}
