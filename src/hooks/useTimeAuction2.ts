@@ -440,8 +440,8 @@ export function useTimeAuction2() {
         (p: Player) => p.player_data.isHolding && !p.player_data.abandonedCountdown,
       )
 
-      // If only one or zero players left, end auction
-      if (stillHoldingAfter && stillHoldingAfter.length <= 1) {
+      // End auction only when NO players are holding (last person released)
+      if (stillHoldingAfter && stillHoldingAfter.length === 0) {
         endAuction()
       }
     }, 100) // Check every 100ms
