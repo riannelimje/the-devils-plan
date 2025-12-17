@@ -297,8 +297,8 @@ export function useTimeAuction2() {
       })
       .eq("id", currentPlayerId)
 
-    // Record bid if in auction phase
-    if (room.game_state.gamePhase === "auction" && timeSpent > 0) {
+    // Record bid if in auction phase - always record, even if timeSpent is 0
+    if (room.game_state.gamePhase === "auction") {
       const bids = { ...room.game_state.bids, [currentPlayerId]: timeSpent }
 
       await supabase
@@ -434,14 +434,19 @@ export function useTimeAuction2() {
         }
       }
 
-      // Refresh players
-      const { data: refreshedPlayers } = await supabase.from("players").select("*").eq("room_id", room.id)
-      const stillHoldingAfter = refreshedPlayers?.filter(
-        (p: Player) => p.player_data.isHolding && !p.player_data.abandonedCountdown,
-      )
+      // Refresh players to get updated state
+      const { data: refreshedPlayers } = await supabase.from("players").select("*").eq("room_id", room.id).eq("is_connected", true)
+      
+      if (!refreshedPlayers) return
+      
+      // Get players who participated (didn't abandon during countdown)
+      const participatingPlayers = refreshedPlayers.filter((p: Player) => !p.player_data.abandonedCountdown)
+      
+      // Check who's still holding among participating players
+      const stillHoldingAfter = participatingPlayers.filter((p: Player) => p.player_data.isHolding)
 
-      // End auction only when NO players are holding (last person released)
-      if (stillHoldingAfter && stillHoldingAfter.length === 0) {
+      // End auction only when NO participating players are holding (last person released)
+      if (participatingPlayers.length > 0 && stillHoldingAfter.length === 0) {
         endAuction()
       }
     }, 100) // Check every 100ms
