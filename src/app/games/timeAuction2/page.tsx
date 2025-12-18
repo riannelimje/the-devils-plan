@@ -325,38 +325,55 @@ export default function TimeAuction2Game() {
                     </div>
 
                     <div>
-                      <Label>Time Bank (minutes)</Label>
+                      <Label htmlFor="timeBank">Time Bank (minutes)</Label>
                       <Input
-                        type="number"
-                        min="1"
-                        max="60"
-                        value={gameSettings.totalTimeBank}
-                        onChange={(e) =>
+                        id="timeBank"
+                        type="text"
+                        inputMode="numeric"
+                        value={gameSettings.totalTimeBank === 0 ? '' : gameSettings.totalTimeBank}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          const num = value === '' ? 0 : Math.max(1, Math.min(60, Number.parseInt(value)));
                           setGameSettings((prev) => ({
                             ...prev,
-                            totalTimeBank: Number.parseInt(e.target.value) || 10,
-                          }))
-                        }
+                            totalTimeBank: num,
+                          }));
+                        }}
+                        onBlur={() => {
+                          if (gameSettings.totalTimeBank === 0) {
+                            setGameSettings((prev) => ({...prev, totalTimeBank: 10}));
+                          }
+                        }}
                         className="bg-gray-800 border-gray-700"
+                        placeholder="e.g., 10"
                       />
                       <p className="text-xs text-gray-400 mt-1">Each player starts with this much time</p>
                     </div>
 
                     <div>
-                      <Label>Total Rounds</Label>
+                      <Label htmlFor="totalRounds">Total Rounds</Label>
                       <Input
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={gameSettings.totalRounds}
-                        onChange={(e) =>
+                        id="totalRounds"
+                        type="text"
+                        inputMode="numeric"
+                        value={gameSettings.totalRounds === 0 ? '' : gameSettings.totalRounds}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          const num = value === '' ? 0 : Math.max(1, Math.min(50, Number.parseInt(value)));
                           setGameSettings((prev) => ({
                             ...prev,
-                            totalRounds: Number.parseInt(e.target.value) || 19,
-                          }))
-                        }
+                            totalRounds: num,
+                          }));
+                        }}
+                        onBlur={() => {
+                          if (gameSettings.totalRounds === 0) {
+                            setGameSettings((prev) => ({...prev, totalRounds: 19}));
+                          }
+                        }}
                         className="bg-gray-800 border-gray-700"
+                        placeholder="e.g., 19"
                       />
+                      <p className="text-xs text-gray-400 mt-1">Number of auction rounds to play</p>
                     </div>
 
                     <Button
