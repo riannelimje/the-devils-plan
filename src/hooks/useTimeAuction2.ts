@@ -116,6 +116,7 @@ export function useTimeAuction2() {
           isHolding: false,
           holdStartTime: null,
           abandonedCountdown: false,
+          hasCompletedBid: false,
         },
         is_host: true,
         is_connected: true,
@@ -169,6 +170,7 @@ export function useTimeAuction2() {
           isHolding: false,
           holdStartTime: null,
           abandonedCountdown: false,
+          hasCompletedBid: false,
         },
         is_host: false,
         is_connected: true,
@@ -224,6 +226,11 @@ export function useTimeAuction2() {
 
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
     if (!currentPlayer) return
+
+    // Prevent re-entering auction after releasing during auction phase
+    if (room.game_state.gamePhase === "auction" && currentPlayer.player_data.hasCompletedBid) {
+      return
+    }
 
     setIsButtonPressed(true)
 
@@ -285,6 +292,8 @@ export function useTimeAuction2() {
 
     // Only mark as abandoned if released during countdown (not during auction)
     const wasAbandoned = room.game_state.gamePhase === "countdown"
+    // Mark bid as completed if released during auction phase
+    const completedBid = room.game_state.gamePhase === "auction"
 
     // Update player
     await supabase
@@ -296,6 +305,7 @@ export function useTimeAuction2() {
           holdStartTime: null,
           timeRemaining: newTimeRemaining,
           abandonedCountdown: wasAbandoned,
+          hasCompletedBid: completedBid,
         },
       })
       .eq("id", currentPlayerId)
@@ -554,6 +564,7 @@ export function useTimeAuction2() {
                   isHolding: false,
                   holdStartTime: null,
                   abandonedCountdown: false,
+                  hasCompletedBid: false,
                 },
               })
               .eq("id", player.id)
