@@ -13,6 +13,7 @@ interface PlayerData {
   isHolding: boolean
   holdStartTime: number | null
   abandonedCountdown: boolean
+  hasCompletedBid?: boolean
 }
 
 interface GameState {
