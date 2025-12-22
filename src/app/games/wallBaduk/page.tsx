@@ -1079,6 +1079,11 @@ export default function WallBadukGame() {
                   ? `${players.find((p) => p.id === placementOrder[placementIndex])?.name} - Place piece ${placementIndex + 1}/4`
                   : `${players[currentPlayerIndex]?.name}'s Turn`}
               </h2>
+              {gamePhase === "playing" && !selectedCounter && !pendingWallPlacement && (
+                <p className="text-purple-400 mt-2">
+                  Click on a piece to move the piece you want
+                </p>
+              )}
               {pendingWallPlacement && (
                 <p className="text-yellow-400 mt-2">
                   Click on a highlighted wall slot to place a {players[currentPlayerIndex]?.color} wall
