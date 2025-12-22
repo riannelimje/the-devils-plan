@@ -102,6 +102,13 @@ export default function TimeAuction2Game() {
   const isCountdownPhase = gamePhase === "countdown"
   const isAuctionPhase = gamePhase === "auction"
 
+  // Sync local pressing state with actual player state from database
+  useEffect(() => {
+    if (currentPlayer?.player_data?.isHolding !== undefined) {
+      setIsPressingButton(currentPlayer.player_data.isHolding)
+    }
+  }, [currentPlayer?.player_data?.isHolding])
+
   // Track elapsed time during auction (starts from 0 after countdown)
   useEffect(() => {
     if (isAuctionPhase && room?.game_state?.auctionStartTime) {
