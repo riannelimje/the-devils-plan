@@ -507,14 +507,62 @@ export default function WallBadukGame() {
 
   // Check if game should end (all pieces in separate territories)
   const checkGameEnd = useCallback(() => {
-    // Check if any piece can still move
-    const canAnyPieceMove = counters.some((counter) => {
-      const moves = getValidMoves(counter)
-      return moves.length > 1 // More than just staying in place
-    })
-
-    if (!canAnyPieceMove) {
-      // Calculate final territories
+    // Check if any red piece can reach any blue piece
+    const redCounters = counters.filter(c => c.color === "red")
+    const blueCounters = counters.filter(c => c.color === "blue")
+    
+    // BFS to check if any red piece can reach any blue piece
+    const canReachOpponent = (startCounters: Counter[], targetCounters: Counter[]): boolean => {
+      for (const start of startCounters) {
+        const visited = new Set<string>()
+        const queue: Position[] = [start.position]
+        visited.add(`${start.position.row},${start.position.col}`)
+        
+        while (queue.length > 0) {
+          const current = queue.shift()!
+          
+          // Check if we reached a target position
+          if (targetCounters.some(t => t.position.row === current.row && t.position.col === current.col)) {
+            return true
+          }
+          
+          // Try all adjacent positions (1 or 2 spaces in cardinal directions)
+          const directions = [
+            { dr: -1, dc: 0 }, // up
+            { dr: 1, dc: 0 },  // down
+            { dr: 0, dc: -1 }, // left
+            { dr: 0, dc: 1 },  // right
+          ]
+          
+          for (const dir of directions) {
+            for (let dist = 1; dist <= 2; dist++) {
+              const newRow = current.row + dir.dr * dist
+              const newCol = current.col + dir.dc * dist
+              const posKey = `${newRow},${newCol}`
+              
+              if (newRow >= 0 && newRow < BOARD_SIZE && 
+                  newCol >= 0 && newCol < BOARD_SIZE && 
+                  !visited.has(posKey)) {
+                
+                const newPos = { row: newRow, col: newCol }
+                
+                // Check if this move is valid (not blocked by walls)
+                if (isValidMove(current, newPos)) {
+                  visited.add(posKey)
+                  queue.push(newPos)
+                }
+              }
+            }
+          }
+        }
+      }
+      return false
+    }
+    
+    const canRedReachBlue = canReachOpponent(redCounters, blueCounters)
+    
+    if (!canRedReachBlue) {
+      // Game ends - pieces are in separate territories
       const finalPlayers = players.map((p) => ({
         ...p,
         territory: calculateTerritory(p.id),
@@ -526,7 +574,7 @@ export default function WallBadukGame() {
       setGamePhase("gameOver")
       setShowGameOver(true)
     }
-  }, [counters, players, getValidMoves, calculateTerritory])
+  }, [counters, players, isValidMove, calculateTerritory])
 
   // Timer effect
   useEffect(() => {
