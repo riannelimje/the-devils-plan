@@ -62,6 +62,7 @@ export default function WallBadukGame() {
   const [placementIndex, setPlacementIndex] = useState(0)
   const [showGameOver, setShowGameOver] = useState(false)
   const [winner, setWinner] = useState<Player | null>(null)
+  const [turnCount, setTurnCount] = useState(0)
 
   // Initialize wall slots
   const initializeWallSlots = useCallback(() => {
@@ -381,6 +382,9 @@ export default function WallBadukGame() {
 
     setPendingWallPlacement(null)
 
+    // Increment turn count
+    setTurnCount((prev) => prev + 1)
+
     // Next player's turn
     setCurrentPlayerIndex((prev) => (prev + 1) % players.length)
     setTimeLeft(TURN_TIME)
@@ -505,33 +509,64 @@ export default function WallBadukGame() {
     [counters, players, isWallBlocking],
   )
 
-  // Check if game should end (all pieces in separate territories)
+  // Check if game should end based on Wall Baduk rules
   const checkGameEnd = useCallback(() => {
-    // Check if any red piece can reach any blue piece
+    // End Condition 1: All walls are used
+    const totalWallSlots = (BOARD_SIZE - 1) * BOARD_SIZE * 2 // horizontal + vertical slots
+    const usedWalls = wallSlots.filter(s => s.occupied).length
+    
+    if (usedWalls === totalWallSlots) {
+      endGame()
+      return
+    }
+    
     const redCounters = counters.filter(c => c.color === "red")
     const blueCounters = counters.filter(c => c.color === "blue")
     
-    // BFS to check if any red piece can reach any blue piece
-    const canReachOpponent = (startCounters: Counter[], targetCounters: Counter[]): boolean => {
-      for (const start of startCounters) {
+    // Helper to check if path is blocked by walls (ignoring pieces)
+    const isPathBlocked = (from: Position, to: Position): boolean => {
+      const dx = Math.abs(to.col - from.col)
+      const dy = Math.abs(to.row - from.row)
+      
+      if (!((dx === 0 && dy <= 2) || (dy === 0 && dx <= 2))) {
+        return true
+      }
+      
+      const stepX = dx === 0 ? 0 : (to.col - from.col) / dx
+      const stepY = dy === 0 ? 0 : (to.row - from.row) / dy
+      let currentPos = { ...from }
+      
+      for (let step = 1; step <= Math.max(dx, dy); step++) {
+        const nextPos = {
+          row: from.row + stepY * step,
+          col: from.col + stepX * step,
+        }
+        
+        if (isWallBlocking(currentPos, nextPos)) {
+          return true
+        }
+        
+        currentPos = nextPos
+      }
+      
+      return false
+    }
+    
+    // Get each player's reachable territory (ignoring pieces, only checking walls)
+    const getPlayerTerritory = (playerCounters: Counter[]): Set<string> => {
+      const territory = new Set<string>()
+      
+      for (const counter of playerCounters) {
         const visited = new Set<string>()
-        const queue: Position[] = [start.position]
-        visited.add(`${start.position.row},${start.position.col}`)
+        const queue: Position[] = [counter.position]
+        visited.add(`${counter.position.row},${counter.position.col}`)
         
         while (queue.length > 0) {
           const current = queue.shift()!
+          territory.add(`${current.row},${current.col}`)
           
-          // Check if we reached a target position
-          if (targetCounters.some(t => t.position.row === current.row && t.position.col === current.col)) {
-            return true
-          }
-          
-          // Try all adjacent positions (1 or 2 spaces in cardinal directions)
           const directions = [
-            { dr: -1, dc: 0 }, // up
-            { dr: 1, dc: 0 },  // down
-            { dr: 0, dc: -1 }, // left
-            { dr: 0, dc: 1 },  // right
+            { dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 }
           ]
           
           for (const dir of directions) {
@@ -546,8 +581,8 @@ export default function WallBadukGame() {
                 
                 const newPos = { row: newRow, col: newCol }
                 
-                // Check if this move is valid (not blocked by walls)
-                if (isValidMove(current, newPos)) {
+                // Only check walls, not pieces
+                if (!isPathBlocked(current, newPos)) {
                   visited.add(posKey)
                   queue.push(newPos)
                 }
@@ -556,25 +591,50 @@ export default function WallBadukGame() {
           }
         }
       }
-      return false
+      
+      return territory
     }
     
-    const canRedReachBlue = canReachOpponent(redCounters, blueCounters)
+    const redTerritory = getPlayerTerritory(redCounters)
+    const blueTerritory = getPlayerTerritory(blueCounters)
     
-    if (!canRedReachBlue) {
-      // Game ends - pieces are in separate territories
-      const finalPlayers = players.map((p) => ({
-        ...p,
-        territory: calculateTerritory(p.id),
-      }))
+    // End Condition 2: Territories are separated (no overlap)
+    const hasOverlap = Array.from(redTerritory).some(pos => blueTerritory.has(pos))
+    
+    if (!hasOverlap) {
+      endGame()
+      return
+    }
+    
+    // End Condition 3: Neither player can make valid moves
+    const redCanMove = redCounters.some(counter => {
+      const moves = getValidMoves(counter)
+      return moves.length > 1 // More than just staying in place
+    })
+    
+    const blueCanMove = blueCounters.some(counter => {
+      const moves = getValidMoves(counter)
+      return moves.length > 1
+    })
+    
+    if (!redCanMove && !blueCanMove) {
+      endGame()
+      return
+    }
+  }, [counters, wallSlots, getValidMoves, isWallBlocking])
+  
+  const endGame = useCallback(() => {
+    const finalPlayers = players.map((p) => ({
+      ...p,
+      territory: calculateTerritory(p.id),
+    }))
 
-      const sortedPlayers = [...finalPlayers].sort((a, b) => b.territory - a.territory)
-      setWinner(sortedPlayers[0])
-      setPlayers(finalPlayers)
-      setGamePhase("gameOver")
-      setShowGameOver(true)
-    }
-  }, [counters, players, isValidMove, calculateTerritory])
+    const sortedPlayers = [...finalPlayers].sort((a, b) => b.territory - a.territory)
+    setWinner(sortedPlayers[0])
+    setPlayers(finalPlayers)
+    setGamePhase("gameOver")
+    setShowGameOver(true)
+  }, [players, calculateTerritory])
 
   // Timer effect
   useEffect(() => {
@@ -602,10 +662,12 @@ export default function WallBadukGame() {
 
   // Check for game end
   useEffect(() => {
-    if (gamePhase === "playing") {
+    // Only check for game end after at least 8 turns (4 complete rounds with both players making moves)
+    // This ensures enough walls are placed before checking separation
+    if (gamePhase === "playing" && turnCount >= 8) {
       checkGameEnd()
     }
-  }, [gamePhase, checkGameEnd])
+  }, [gamePhase, turnCount, checkGameEnd])
 
   // Reset game
   const resetGame = () => {
@@ -621,6 +683,7 @@ export default function WallBadukGame() {
     setPlacementIndex(0)
     setShowGameOver(false)
     setWinner(null)
+    setTurnCount(0)
   }
 
   // Convert row index to display number (7 at top, 1 at bottom)
@@ -811,8 +874,8 @@ export default function WallBadukGame() {
       <Header />
 
       {/* Game Over Dialog */}
-      <Dialog open={showGameOver} onOpenChange={setShowGameOver}>
-        <DialogContent className="bg-gradient-to-br from-red-950/30 via-gray-900 to-black border-red-900/50">
+      <Dialog open={showGameOver} onOpenChange={setShowGameOver} modal={false}>
+        <DialogContent className="bg-gradient-to-br from-red-950/95 via-gray-900/95 to-black/95 border-red-900/50 backdrop-blur-sm">
           <DialogHeader>
             <DialogTitle className="text-center text-3xl text-red-400">GAME OVER</DialogTitle>
           </DialogHeader>
@@ -980,14 +1043,14 @@ export default function WallBadukGame() {
           </div>
         )}
 
-        {(gamePhase === "placement" || gamePhase === "playing") && (
+        {(gamePhase === "placement" || gamePhase === "playing" || gamePhase === "gameOver") && (
           <div className="max-w-6xl mx-auto">
             {/* Game Status */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-4">
                 <Badge variant="outline" className="border-red-500 text-red-400">
                   <Users className="w-4 h-4 mr-1" />
-                  {gamePhase === "placement" ? "Placement Phase" : "Playing"}
+                  {gamePhase === "placement" ? "Placement Phase" : gamePhase === "gameOver" ? "Game Over" : "Playing"}
                 </Badge>
                 {gamePhase === "playing" && (
                   <Badge variant="outline" className={`${timeLeft <= 30 ? 'border-red-500 text-red-400' : 'border-green-500 text-green-400'}`}>
