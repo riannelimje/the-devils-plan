@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { ArrowLeft, Clock, Users, Hammer, Trophy, RotateCcw } from "lucide-react"
+import { ArrowLeft, Clock, Users, Hammer, Trophy, RotateCcw, Target, BrainCircuit } from "lucide-react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -812,32 +812,42 @@ export default function WallBadukGame() {
 
       {/* Game Over Dialog */}
       <Dialog open={showGameOver} onOpenChange={setShowGameOver}>
-        <DialogContent className="bg-gray-900 border-gray-800">
+        <DialogContent className="bg-gradient-to-br from-red-950/30 via-gray-900 to-black border-red-900/50">
           <DialogHeader>
-            <DialogTitle className="text-center text-2xl">Game Over!</DialogTitle>
+            <DialogTitle className="text-center text-3xl text-red-400">GAME OVER</DialogTitle>
           </DialogHeader>
           <div className="text-center py-4">
             {winner && (
               <div>
-                <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-yellow-500 mb-2">{winner.name} Wins!</h3>
-                <p className="text-gray-300">Territory: {winner.territory} squares</p>
-                <div className="mt-4 space-y-2">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", delay: 0.2 }}
+                >
+                  <Trophy className="w-20 h-20 text-red-500 mx-auto mb-4" />
+                </motion.div>
+                <h3 className="text-2xl font-bold text-red-500 mb-2">{winner.name} Wins!</h3>
+                <p className="text-gray-300 text-lg mb-4">Territory: <span className="text-red-400 font-bold">{winner.territory}</span> squares</p>
+                <div className="mt-6 space-y-3 bg-black/40 rounded-lg p-4 border border-red-900/30">
+                  <h4 className="text-sm font-semibold text-gray-400 mb-3">FINAL STANDINGS</h4>
                   {players
                     .sort((a, b) => b.territory - a.territory)
                     .map((player, index) => (
-                      <div key={player.id} className="flex justify-between items-center">
-                        <span>
-                          #{index + 1} {player.name}
+                      <div key={player.id} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
+                        <span className="flex items-center gap-2">
+                          <Badge variant="outline" className={index === 0 ? "border-red-500 text-red-400" : "border-gray-600 text-gray-400"}>
+                            #{index + 1}
+                          </Badge>
+                          <span className={index === 0 ? "text-red-400 font-bold" : "text-gray-300"}>{player.name}</span>
                         </span>
-                        <span>{player.territory} squares</span>
+                        <span className={index === 0 ? "text-red-400 font-bold" : "text-gray-400"}>{player.territory} squares</span>
                       </div>
                     ))}
                 </div>
               </div>
             )}
-            <Button onClick={resetGame} className="mt-4 bg-blue-600 hover:bg-blue-700">
-              Play Again
+            <Button onClick={resetGame} className="mt-6 w-full bg-red-600 hover:bg-red-700 h-12 text-lg">
+              PLAY AGAIN
             </Button>
           </div>
         </DialogContent>
@@ -856,41 +866,117 @@ export default function WallBadukGame() {
         </motion.div>
 
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">
-            <span className="text-red-500">Wall Baduk</span>
-          </h1>
-          <p className="text-gray-400 max-w-2xl mx-auto">
-            Strategic territorial game where players move pieces and build coloured walls to enclose the largest territory
-          </p>
+          <motion.h1 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-5xl font-bold mb-4"
+          >
+            <span className="text-red-500">WALL BADUK</span>
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-gray-400 max-w-2xl mx-auto text-lg"
+          >
+            Strategic territorial game - build walls to claim territory and outsmart your opponent
+          </motion.p>
         </div>
 
         {gamePhase === "setup" && (
-          <div className="max-w-md mx-auto">
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle>Wall Baduk</CardTitle>
-                <CardDescription>Build walls to create territories containing only your pieces</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-sm text-gray-300">
-                    <h4 className="font-bold mb-2">Rules:</h4>
-                    <ul className="space-y-1 text-xs">
-                      <li>• 7×7 board, 4 pieces per player</li>
-                      <li>• Fixed starting positions + 2 placement rounds</li>
-                      <li>• Move 0, 1, or 2 spaces (cardinal directions)</li>
-                      <li>• Cannot cross walls or pieces</li>
-                      <li>• Must place colored wall after each move</li>
-                      <li>• Goal: Largest enclosed territory wins</li>
-                      <li>• 90 seconds per turn</li>
+          <div className="max-w-3xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="bg-gradient-to-br from-red-950/30 via-gray-900 to-black border-red-900/50">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-red-400 flex items-center gap-2">
+                    <Hammer className="w-6 h-6" />
+                    Wall Baduk
+                  </CardTitle>
+                  <CardDescription className="text-gray-400 text-base">
+                    Build walls to create territories containing only your pieces
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Game Overview */}
+                  <div className="bg-black/40 rounded-lg p-4 border border-red-900/30">
+                    <h4 className="font-bold text-red-400 mb-3 flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Game Setup
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-red-500 text-red-400">7×7</Badge>
+                        <span className="text-gray-300">Board Size</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-blue-500 text-blue-400">4</Badge>
+                        <span className="text-gray-300">Pieces per Player</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-green-500 text-green-400">2</Badge>
+                        <span className="text-gray-300">Players</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-yellow-500 text-yellow-400">90s</Badge>
+                        <span className="text-gray-300">Turn Timer</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rules */}
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-red-400 flex items-center gap-2">
+                      <Trophy className="w-4 h-4" />
+                      How to Play
+                    </h4>
+                    
+                    <div className="space-y-3 text-sm text-gray-300">
+                      <div className="bg-black/40 rounded p-3 border-l-2 border-red-500">
+                        <span className="font-semibold text-red-400">Setup:</span>
+                        <p className="mt-1">Each player starts with 2 pieces in fixed positions. Take turns placing your remaining 2 pieces anywhere on the board.</p>
+                      </div>
+                      
+                      <div className="bg-black/40 rounded p-3 border-l-2 border-blue-500">
+                        <span className="font-semibold text-blue-400">Movement:</span>
+                        <p className="mt-1">On your turn, select a piece and move it 0, 1, or 2 spaces in any cardinal direction (up, down, left, right). You cannot move through walls or other pieces.</p>
+                      </div>
+                      
+                      <div className="bg-black/40 rounded p-3 border-l-2 border-yellow-500">
+                        <span className="font-semibold text-yellow-400">Wall Placement:</span>
+                        <p className="mt-1">After moving, you must place a wall of your color adjacent to your piece's new position. Walls block movement for all pieces.</p>
+                      </div>
+                      
+                      <div className="bg-black/40 rounded p-3 border-l-2 border-green-500">
+                        <span className="font-semibold text-green-400">Winning:</span>
+                        <p className="mt-1">The game ends when all pieces are separated into territories (no piece can reach an opponent's piece). The player controlling the largest territory wins!</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Strategic Tips */}
+                  <div className="bg-red-950/20 rounded-lg p-4 border border-red-900/30">
+                    <h4 className="font-bold text-red-400 mb-2 flex items-center gap-2">
+                      <BrainCircuit className="w-4 h-4" />
+                      Strategy Tips
+                    </h4>
+                    <ul className="space-y-1 text-xs text-gray-400">
+                      <li>• Use walls to divide the board into territories</li>
+                      <li>• Control the center for maximum territory potential</li>
+                      <li>• Block your opponent's pieces from expanding</li>
+                      <li>• Plan ahead - each wall placement is permanent!</li>
                     </ul>
                   </div>
-                  <Button onClick={setupGame} className="w-full bg-red-600 hover:bg-red-700">
-                    Start Game
+
+                  <Button onClick={setupGame} className="w-full bg-red-600 hover:bg-red-700 h-12 text-lg font-bold">
+                    START GAME
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
         )}
 
@@ -899,18 +985,18 @@ export default function WallBadukGame() {
             {/* Game Status */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-4">
-                <Badge variant="outline" className="border-blue-500 text-blue-400">
+                <Badge variant="outline" className="border-red-500 text-red-400">
                   <Users className="w-4 h-4 mr-1" />
                   {gamePhase === "placement" ? "Placement Phase" : "Playing"}
                 </Badge>
                 {gamePhase === "playing" && (
-                  <Badge variant="outline" className="border-green-500 text-green-400">
+                  <Badge variant="outline" className={`${timeLeft <= 30 ? 'border-red-500 text-red-400' : 'border-green-500 text-green-400'}`}>
                     <Clock className="w-4 h-4 mr-1" />
                     {timeLeft}s
                   </Badge>
                 )}
               </div>
-              <Button onClick={resetGame} variant="outline" size="sm">
+              <Button onClick={resetGame} variant="outline" size="sm" className="border-red-900 text-red-400 hover:bg-red-950 hover:text-red-300">
                 <RotateCcw className="w-4 h-4 mr-1" />
                 Reset
               </Button>
