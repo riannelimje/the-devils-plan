@@ -436,75 +436,82 @@ export default function WallBadukGame() {
       const playerColor = players.find((p) => p.id === playerId)?.color
       if (!playerColor) return 0
 
+      const playerCounters = counters.filter(c => c.playerId === playerId)
       const visited = new Set<string>()
-      let totalTerritory = 0
+      let territoryCount = 0
 
-      // Flood fill function to find enclosed areas
-      const floodFill = (startRow: number, startCol: number): number => {
-        const stack = [{ row: startRow, col: startCol }]
-        const territory = new Set<string>()
-        let isEnclosed = true
-        let containsOnlyPlayerPieces = true
+      // BFS from each player piece to find all reachable squares
+      for (const counter of playerCounters) {
+        const queue: Position[] = [counter.position]
+        const startKey = `${counter.position.row},${counter.position.col}`
+        
+        if (!visited.has(startKey)) {
+          visited.add(startKey)
+          territoryCount++ // Count the piece's square
+        }
 
-        while (stack.length > 0) {
-          const { row, col } = stack.pop()!
-          const key = `${row},${col}`
+        while (queue.length > 0) {
+          const current = queue.shift()!
 
-          if (visited.has(key) || row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
-            continue
-          }
-
-          // Check if there's a piece here
-          const piece = counters.find((c) => c.position.row === row && c.position.col === col)
-          if (piece) {
-            if (piece.color !== playerColor) {
-              containsOnlyPlayerPieces = false
-            }
-            continue
-          }
-
-          visited.add(key)
-          territory.add(key)
-
-          // Check all four directions
           const directions = [
             { dr: -1, dc: 0 }, // up
-            { dr: 1, dc: 0 }, // down
+            { dr: 1, dc: 0 },  // down
             { dr: 0, dc: -1 }, // left
-            { dr: 0, dc: 1 }, // right
+            { dr: 0, dc: 1 },  // right
           ]
 
-          for (const { dr, dc } of directions) {
-            const newRow = row + dr
-            const newCol = col + dc
-            const newPos = { row: newRow, col: newCol }
-            const currentPos = { row, col }
+          for (const dir of directions) {
+            for (let dist = 1; dist <= 2; dist++) {
+              const newRow = current.row + dir.dr * dist
+              const newCol = current.col + dir.dc * dist
+              const key = `${newRow},${newCol}`
 
-            // Check if movement is blocked by wall
-            if (!isWallBlocking(currentPos, newPos)) {
-              if (newRow >= 0 && newRow < BOARD_SIZE && newCol >= 0 && newCol < BOARD_SIZE) {
-                stack.push({ row: newRow, col: newCol })
-              } else {
-                isEnclosed = false // Reached board edge
+              if (newRow >= 0 && newRow < BOARD_SIZE && 
+                  newCol >= 0 && newCol < BOARD_SIZE && 
+                  !visited.has(key)) {
+
+                const newPos = { row: newRow, col: newCol }
+
+                // Check if path is blocked by walls
+                const dx = Math.abs(newPos.col - current.col)
+                const dy = Math.abs(newPos.row - current.row)
+                
+                if ((dx === 0 && dy <= 2) || (dy === 0 && dx <= 2)) {
+                  const stepX = dx === 0 ? 0 : (newPos.col - current.col) / dx
+                  const stepY = dy === 0 ? 0 : (newPos.row - current.row) / dy
+                  let tempPos = { ...current }
+                  let blocked = false
+
+                  for (let step = 1; step <= Math.max(dx, dy); step++) {
+                    const nextPos = {
+                      row: current.row + stepY * step,
+                      col: current.col + stepX * step,
+                    }
+
+                    if (isWallBlocking(tempPos, nextPos)) {
+                      blocked = true
+                      break
+                    }
+                    tempPos = nextPos
+                  }
+
+                  if (!blocked) {
+                    // Check if there's an opponent piece here
+                    const pieceAtPos = counters.find(c => c.position.row === newRow && c.position.col === newCol)
+                    if (!pieceAtPos || pieceAtPos.color === playerColor) {
+                      visited.add(key)
+                      territoryCount++
+                      queue.push(newPos)
+                    }
+                  }
+                }
               }
             }
           }
         }
-
-        return isEnclosed && containsOnlyPlayerPieces ? territory.size : 0
       }
 
-      // Check each empty square
-      for (let row = 0; row < BOARD_SIZE; row++) {
-        for (let col = 0; col < BOARD_SIZE; col++) {
-          const key = `${row},${col}`
-          if (!visited.has(key) && !counters.some((c) => c.position.row === row && c.position.col === col)) {
-            totalTerritory += floodFill(row, col)
-          }
-        }
-      }
-
-      return totalTerritory
+      return territoryCount
     },
     [counters, players, isWallBlocking],
   )
