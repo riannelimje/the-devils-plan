@@ -1131,10 +1131,12 @@ export default function WallBadukGame() {
                           {player.counters.length}/{PIECES_PER_PLAYER}
                         </span>
                       </div>
-                      <div>
-                        Territory:{" "}
-                        <span className="text-white font-semibold">{calculateTerritory(player.id)} squares</span>
-                      </div>
+                      {gamePhase === "gameOver" && (
+                        <div>
+                          Territory:{" "}
+                          <span className="text-white font-semibold">{calculateTerritory(player.id)} squares</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
