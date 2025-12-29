@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit, Crown, Target, Trophy, AlertTriangle, Lock, Clock, Play, Pause, ChevronUp, X, Zap } from 'lucide-react'
+import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit, Crown, Target, Trophy, AlertTriangle, Lock, Clock, Play, Pause, ChevronUp, X, Zap, Maximize, Minimize } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Button } from "@/components/ui/button"
@@ -104,6 +104,7 @@ export default function KnightsTourGame() {
   const [showUsernamePrompt, setShowUsernamePrompt] = useState(false)
   const [usernameInput, setUsernameInput] = useState("")
   const [usernameError, setUsernameError] = useState("")
+  const [isFullscreen, setIsFullscreen] = useState(false)
   
   const isComplete = visited.size === boardSize * boardSize
 
@@ -631,9 +632,122 @@ export default function KnightsTourGame() {
              style={{ animation: 'scan 8s linear infinite' }} />
       </div>
 
-      <Header />
+      {/* Fullscreen Mode */}
+      {isFullscreen ? (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4">
+          {/* Stats Bar at Top */}
+          <div className="absolute top-4 left-4 right-4 flex justify-center gap-2 sm:gap-4 flex-wrap z-10">
+            <div className="bg-black/80 border border-red-900/50 rounded-lg px-3 py-2">
+              <div className="text-xs text-gray-500 font-mono">MOVES</div>
+              <div className="text-lg sm:text-xl font-bold text-red-400">{path.length}</div>
+            </div>
+            <div className="bg-black/80 border border-red-900/50 rounded-lg px-3 py-2">
+              <div className="text-xs text-gray-500 font-mono">REMAINING</div>
+              <div className="text-lg sm:text-xl font-bold text-red-400">{boardSize * boardSize - visited.size}</div>
+            </div>
+            <div className="bg-black/80 border border-red-900/50 rounded-lg px-3 py-2">
+              <div className="text-xs text-gray-500 font-mono">PROGRESS</div>
+              <div className="text-lg sm:text-xl font-bold text-red-400">
+                {Math.floor((visited.size / (boardSize * boardSize)) * 100)}%
+              </div>
+            </div>
+            <div className="bg-black/80 border border-red-900/50 rounded-lg px-3 py-2 min-w-[120px]">
+              <div className="text-xs text-gray-500 font-mono flex items-center justify-between mb-1">
+                <span>TIME</span>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setTimerRunning(!timerRunning)}
+                  disabled={isComplete}
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {timerRunning ? (
+                    <Pause className="w-3 h-3 text-red-400" />
+                  ) : (
+                    <Play className="w-3 h-3 text-red-400" />
+                  )}
+                </motion.button>
+              </div>
+              <div className="text-lg sm:text-xl font-bold text-red-400 font-mono">
+                {formatTime(elapsedTime)}
+              </div>
+            </div>
+          </div>
 
-      <main className="flex-1 container mx-auto px-4 py-12 relative z-20">
+          {/* Exit Fullscreen Button */}
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="absolute top-4 right-4 z-20 bg-black/80 border border-red-900/50 rounded-lg px-3 py-2 text-red-400 hover:bg-red-950/50 transition-colors font-mono text-sm flex items-center gap-2"
+          >
+            <Minimize className="w-4 h-4" />
+            EXIT
+          </button>
+
+          {/* Fullscreen Chess Board */}
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="relative w-full h-full max-w-[min(90vh,90vw)] max-h-[min(90vh,90vw)] flex items-center justify-center">
+              <div className="absolute -inset-1 bg-gradient-to-r from-red-600/20 to-red-800/20 rounded-xl blur" />
+              <div className="relative bg-black/60 border-2 border-red-900/50 rounded-xl p-2 sm:p-4 backdrop-blur-sm w-full h-full">
+                <div
+                  className="grid gap-0.5 p-1 rounded-lg w-full h-full"
+                  style={{
+                    gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
+                    aspectRatio: '1/1'
+                  }}
+                >
+                  {Array.from({ length: boardSize * boardSize }).map((_, i) => {
+                    const row = Math.floor(i / boardSize)
+                    const col = i % boardSize
+                    const isBlackSquare = (row + col) % 2 === 1
+                    const isKnightHere = knightPos[0] === row && knightPos[1] === col
+                    const isVisited = visited.has(`${row},${col}`)
+                    const moveIndex = path.findIndex(([x, y]) => x === row && y === col)
+
+                    return (
+                      <motion.div
+                        key={i}
+                        whileHover={{ scale: 1.05, zIndex: 10 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`${
+                          isBlackSquare 
+                            ? "bg-gray-800" 
+                            : "bg-gray-600"
+                        } ${
+                          isVisited ? "ring-1 ring-red-500/30" : ""
+                        } relative flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-red-500 transition-all`}
+                        style={{
+                          aspectRatio: '1/1',
+                          minHeight: '0'
+                        }}
+                        onClick={() => handleSquareClick(row, col)}
+                      >
+                        {isKnightHere && (
+                          <motion.div
+                            initial={{ scale: 0, rotate: -180 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ type: "spring", stiffness: 200 }}
+                          >
+                            <ChessKnight className="w-8 h-8 sm:w-10 sm:h-10 text-red-400 z-10 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                          </motion.div>
+                        )}
+                        {isVisited && !blindMode && (
+                          <div className="absolute bottom-0.5 right-0.5 text-[10px] sm:text-xs font-bold text-red-400 bg-black/60 px-1 rounded">
+                            {moveIndex + 1}
+                          </div>
+                        )}
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <Header />
+
+          <main className="flex-1 container mx-auto px-4 py-12 relative z-20">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -942,6 +1056,16 @@ export default function KnightsTourGame() {
                             RESET
                           </Button>
                         </motion.div>
+                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button 
+                            variant="outline" 
+                            className="border-red-900/50 hover:bg-red-950/50 font-mono backdrop-blur-sm" 
+                            onClick={() => setIsFullscreen(true)}
+                          >
+                            <Maximize className="w-4 h-4 mr-2" />
+                            FULLSCREEN
+                          </Button>
+                        </motion.div>
                       </div>
 
                       {/* Instructions */}
@@ -1110,6 +1234,8 @@ export default function KnightsTourGame() {
           )}
         </AnimatePresence>
       </main>
+      </>
+      )}
       
       {/* Invalid Move Modal */}
       {showInvalidMove && !blindMode && (
