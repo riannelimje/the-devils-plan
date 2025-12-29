@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import Header from "@/components/header"
+import { supabase } from "@/lib/supabase"
 
 const KNIGHT_MOVES = [
   [2, 1], [1, 2], [-1, 2], [-2, 1],
@@ -33,50 +34,49 @@ type TimeFilter = 'DAILY' | 'WEEKLY' | 'ALL-TIME'
 type BoardSizeFilter = 5 | 6 | 7 | 8 | 'ALL'
 type ModeFilter = 'NORMAL' | 'BLIND'
 
-// Generate mock leaderboard data
-const generateMockData = (count: number): LeaderboardEntry[] => {
-  const usernames = [
-    "Agent█████", "Player███", "Strategist█", "Shadow███", "Phantom█████",
-    "Ghost███", "Cipher█████", "Enigma███", "Vortex█████", "Oracle███",
-    "Nexus█████", "Wraith███", "Tempest█████", "Apex███", "Nova█████",
-    "Void███", "Echo█████", "Spectre███", "Rogue█████", "Titan███"
-  ]
+// Fetch leaderboard from Supabase
+async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
+  const { data, error } = await supabase
+    .from('knights_tour_leaderboard')
+    .select('*')
+    .order('moves', { ascending: true })
+    .order('time', { ascending: true })
   
-  const entries: LeaderboardEntry[] = []
-  const usedNames = new Set<string>()
-  
-  for (let i = 0; i < count; i++) {
-    let username: string
-    do {
-      username = usernames[Math.floor(Math.random() * usernames.length)]
-    } while (usedNames.has(username) && usedNames.size < usernames.length)
-    usedNames.add(username)
-    
-    const randomBoardSize = [5, 6, 7, 8][Math.floor(Math.random() * 4)] as 5 | 6 | 7 | 8
-    const randomIsBlind = Math.random() > 0.7
-    
-    entries.push({
-      rank: 0, // Will be set after sorting
-      username,
-      moves: 24 + Math.floor(Math.random() * 27), // 24-50 moves
-      time: 45 + Math.random() * 300, // 45s - 345s
-      date: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      boardSize: randomBoardSize,
-      isBlindMode: randomIsBlind,
-      isFastest: false // Will be set after sorting
-    })
+  if (error) {
+    console.error('Error fetching leaderboard:', error)
+    return []
   }
   
-  // Sort by moves first, then by time
-  entries.sort((a, b) => a.moves - b.moves || a.time - b.time)
+  return data.map((entry, index) => ({
+    rank: index + 1,
+    username: entry.username,
+    moves: entry.moves,
+    time: entry.time,
+    date: entry.created_at,
+    boardSize: entry.board_size,
+    isBlindMode: entry.is_blind_mode,
+    isFastest: index === 0
+  }))
+}
+
+// Submit score to Supabase
+async function submitScore(username: string, moves: number, time: number, boardSize: number, isBlindMode: boolean) {
+  const { error } = await supabase
+    .from('knights_tour_leaderboard')
+    .insert({
+      username,
+      moves,
+      time,
+      board_size: boardSize,
+      is_blind_mode: isBlindMode
+    })
   
-  // Assign ranks after sorting
-  entries.forEach((entry, index) => {
-    entry.rank = index + 1
-    entry.isFastest = index === 0 // Mark first entry as fastest
-  })
+  if (error) {
+    console.error('Error submitting score:', error)
+    return false
+  }
   
-  return entries
+  return true
 }
 
 export default function KnightsTourGame() {
@@ -101,12 +101,18 @@ export default function KnightsTourGame() {
   const [modeFilter, setModeFilter] = useState<ModeFilter>('NORMAL')
   const [userBestScores, setUserBestScores] = useState<{[key: string]: {moves: number, time: number}}>({})
   const [showMobileLeaderboard, setShowMobileLeaderboard] = useState(false)
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false)
+  const [usernameInput, setUsernameInput] = useState("")
+  const [usernameError, setUsernameError] = useState("")
   
   const isComplete = visited.size === boardSize * boardSize
 
   // Initialize leaderboard and load user's best from localStorage
   useEffect(() => {
-    setLeaderboardData(generateMockData(20))
+    // Fetch real data from Supabase
+    fetchLeaderboard().then(data => {
+      setLeaderboardData(data)
+    })
     
     const saved = localStorage.getItem('knightsTourBestScores')
     if (saved) {
@@ -132,6 +138,9 @@ export default function KnightsTourGame() {
         
         setUserBestScores(newBestScores)
         localStorage.setItem('knightsTourBestScores', JSON.stringify(newBestScores))
+        
+        // Prompt for username to submit to leaderboard
+        setShowUsernamePrompt(true)
       }
     }
   }, [isComplete, path.length, elapsedTime, boardSize, blindMode, userBestScores])
@@ -577,6 +586,40 @@ export default function KnightsTourGame() {
       resetGame(boardSize)
     } else {
       setQuizError("Try again!")
+    }
+  }
+
+  async function handleUsernameSubmit() {
+    if (!usernameInput.trim()) {
+      setUsernameError("Please enter a username")
+      return
+    }
+
+    if (usernameInput.length < 3) {
+      setUsernameError("Username must be at least 3 characters")
+      return
+    }
+
+    // Submit score to Supabase
+    const success = await submitScore(
+      usernameInput.trim(),
+      path.length,
+      elapsedTime,
+      boardSize,
+      blindMode
+    )
+
+    if (success) {
+      // Refresh leaderboard
+      const newData = await fetchLeaderboard()
+      setLeaderboardData(newData)
+      
+      // Close modal
+      setShowUsernamePrompt(false)
+      setUsernameInput("")
+      setUsernameError("")
+    } else {
+      setUsernameError("Failed to submit score. Please try again.")
     }
   }
 
@@ -1167,6 +1210,86 @@ export default function KnightsTourGame() {
                   <Button 
                     onClick={handleQuizSubmit} 
                     className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-mono shadow-lg shadow-red-900/50"
+                  >
+                    SUBMIT
+                  </Button>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Username Prompt Modal */}
+      {showUsernamePrompt && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/90 backdrop-blur-sm"
+        >
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0, rotateX: -10 }}
+            animate={{ scale: 1, opacity: 1, rotateX: 0 }}
+            transition={{ type: "spring", stiffness: 200 }}
+            className="relative max-w-md w-full"
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-green-600 via-emerald-600 to-green-700 rounded-xl opacity-75 blur animate-pulse" />
+            <div className="relative bg-gradient-to-br from-green-950/90 via-black to-black rounded-xl p-8 shadow-2xl border border-green-500/50 backdrop-blur-md">
+              <h2 className="text-2xl font-bold mb-6 text-green-400 text-center font-mono flex items-center justify-center gap-2">
+                <Trophy className="w-6 h-6" />
+                NEW BEST SCORE!
+              </h2>
+              <div className="bg-black/60 p-6 rounded-lg mb-6 border border-green-900/50">
+                <p className="text-sm mb-2 text-green-400 font-mono">[SUBMIT TO LEADERBOARD]</p>
+                <p className="text-lg font-medium mb-4 text-gray-200">
+                  You completed the {boardSize}×{boardSize} board in {path.length} moves!
+                </p>
+                
+                <div className="flex flex-col space-y-4">
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      value={usernameInput}
+                      onChange={(e) => setUsernameInput(e.target.value)}
+                      placeholder="Enter your username..."
+                      maxLength={20}
+                      className="w-full px-4 py-3 rounded-md bg-black/80 border border-green-900/50 text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono shadow-[0_0_15px_rgba(34,197,94,0.1)] transition-all"
+                      onKeyDown={(e) => e.key === 'Enter' && handleUsernameSubmit()}
+                      autoFocus
+                    />
+                    <div className="absolute inset-0 rounded-md bg-green-500/5 pointer-events-none" />
+                  </div>
+                  
+                  {usernameError && (
+                    <motion.p 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="text-red-400 text-sm font-mono"
+                    >
+                      ⚠ {usernameError}
+                    </motion.p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex justify-center gap-4">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button 
+                    onClick={() => {
+                      setShowUsernamePrompt(false)
+                      setUsernameInput("")
+                      setUsernameError("")
+                    }} 
+                    variant="outline"
+                    className="border-green-900/50 hover:bg-green-950/50 text-gray-300 font-mono"
+                  >
+                    SKIP
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button 
+                    onClick={handleUsernameSubmit} 
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-mono shadow-lg shadow-green-900/50"
                   >
                     SUBMIT
                   </Button>
