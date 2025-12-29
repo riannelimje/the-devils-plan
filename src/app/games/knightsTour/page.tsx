@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit, Crown, Target, Trophy, AlertTriangle, Lock, Clock, Play, Pause } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { ArrowLeft, CastleIcon as ChessKnight, EyeIcon, EyeOff, BrainCircuit, Crown, Target, Trophy, AlertTriangle, Lock, Clock, Play, Pause, ChevronUp, X, Zap } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -16,6 +16,68 @@ const KNIGHT_MOVES = [
   [2, 1], [1, 2], [-1, 2], [-2, 1],
   [-2, -1], [-1, -2], [1, -2], [2, -1]
 ]
+
+// Leaderboard types
+type LeaderboardEntry = {
+  rank: number
+  username: string
+  moves: number
+  time: number
+  date: string
+  boardSize: number
+  isBlindMode: boolean
+  isFastest?: boolean
+}
+
+type TimeFilter = 'DAILY' | 'WEEKLY' | 'ALL-TIME'
+type BoardSizeFilter = 5 | 6 | 7 | 8 | 'ALL'
+type ModeFilter = 'NORMAL' | 'BLIND'
+
+// Generate mock leaderboard data
+const generateMockData = (count: number): LeaderboardEntry[] => {
+  const usernames = [
+    "Agent█████", "Player███", "Strategist█", "Shadow███", "Phantom█████",
+    "Ghost███", "Cipher█████", "Enigma███", "Vortex█████", "Oracle███",
+    "Nexus█████", "Wraith███", "Tempest█████", "Apex███", "Nova█████",
+    "Void███", "Echo█████", "Spectre███", "Rogue█████", "Titan███"
+  ]
+  
+  const entries: LeaderboardEntry[] = []
+  const usedNames = new Set<string>()
+  
+  for (let i = 0; i < count; i++) {
+    let username: string
+    do {
+      username = usernames[Math.floor(Math.random() * usernames.length)]
+    } while (usedNames.has(username) && usedNames.size < usernames.length)
+    usedNames.add(username)
+    
+    const randomBoardSize = [5, 6, 7, 8][Math.floor(Math.random() * 4)] as 5 | 6 | 7 | 8
+    const randomIsBlind = Math.random() > 0.7
+    
+    entries.push({
+      rank: 0, // Will be set after sorting
+      username,
+      moves: 24 + Math.floor(Math.random() * 27), // 24-50 moves
+      time: 45 + Math.random() * 300, // 45s - 345s
+      date: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      boardSize: randomBoardSize,
+      isBlindMode: randomIsBlind,
+      isFastest: false // Will be set after sorting
+    })
+  }
+  
+  // Sort by moves first, then by time
+  entries.sort((a, b) => a.moves - b.moves || a.time - b.time)
+  
+  // Assign ranks after sorting
+  entries.forEach((entry, index) => {
+    entry.rank = index + 1
+    entry.isFastest = index === 0 // Mark first entry as fastest
+  })
+  
+  return entries
+}
 
 export default function KnightsTourGame() {
   const [boardSize, setBoardSize] = useState(5)
@@ -32,7 +94,47 @@ export default function KnightsTourGame() {
   const [timerRunning, setTimerRunning] = useState(false)
   const [elapsedTime, setElapsedTime] = useState(0)
   
+  // Leaderboard state
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([])
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('ALL-TIME')
+  const [boardSizeFilter, setBoardSizeFilter] = useState<BoardSizeFilter>('ALL')
+  const [modeFilter, setModeFilter] = useState<ModeFilter>('NORMAL')
+  const [userBestScores, setUserBestScores] = useState<{[key: string]: {moves: number, time: number}}>({})
+  const [showMobileLeaderboard, setShowMobileLeaderboard] = useState(false)
+  
   const isComplete = visited.size === boardSize * boardSize
+
+  // Initialize leaderboard and load user's best from localStorage
+  useEffect(() => {
+    setLeaderboardData(generateMockData(20))
+    
+    const saved = localStorage.getItem('knightsTourBestScores')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      setUserBestScores(parsed)
+    }
+  }, [])
+
+  // Update user's best score when game completes
+  useEffect(() => {
+    if (isComplete && path.length > 0 && elapsedTime > 0) {
+      const currentMoves = path.length
+      const currentTime = elapsedTime
+      const key = `${boardSize}x${boardSize}-${blindMode ? 'BLIND' : 'NORMAL'}`
+      
+      const existingBest = userBestScores[key]
+      
+      if (!existingBest || currentMoves < existingBest.moves || (currentMoves === existingBest.moves && currentTime < existingBest.time)) {
+        const newBestScores = {
+          ...userBestScores,
+          [key]: { moves: currentMoves, time: currentTime }
+        }
+        
+        setUserBestScores(newBestScores)
+        localStorage.setItem('knightsTourBestScores', JSON.stringify(newBestScores))
+      }
+    }
+  }, [isComplete, path.length, elapsedTime, boardSize, blindMode, userBestScores])
 
   // Timer effect
   useEffect(() => {
@@ -151,6 +253,309 @@ export default function KnightsTourGame() {
     resetGame(newSize)
   }
 
+  // Filter leaderboard based on all filters
+  function getFilteredLeaderboard(): LeaderboardEntry[] {
+    const now = new Date()
+    let filtered = leaderboardData
+    
+    // Time filter
+    if (timeFilter === 'DAILY') {
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      filtered = filtered.filter(entry => new Date(entry.date) >= oneDayAgo)
+    } else if (timeFilter === 'WEEKLY') {
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      filtered = filtered.filter(entry => new Date(entry.date) >= oneWeekAgo)
+    }
+    
+    // Board size filter
+    if (boardSizeFilter !== 'ALL') {
+      filtered = filtered.filter(entry => entry.boardSize === boardSizeFilter)
+    }
+    
+    // Mode filter (always applied - no ALL option)
+    if (modeFilter === 'NORMAL') {
+      filtered = filtered.filter(entry => !entry.isBlindMode)
+    } else if (modeFilter === 'BLIND') {
+      filtered = filtered.filter(entry => entry.isBlindMode)
+    }
+    
+    // Sort by moves then time
+    filtered.sort((a, b) => a.moves - b.moves || a.time - b.time)
+    
+    // Reassign ranks based on filtered results (1, 2, 3, ...)
+    const rankedEntries = filtered.slice(0, 10).map((entry, index) => ({
+      ...entry,
+      rank: index + 1
+    }))
+    
+    return rankedEntries
+  }
+
+  // Get user's best for current filter combination
+  function getUserBestForCurrentFilters() {
+    // Build keys for all relevant combinations
+    const boardSizes = boardSizeFilter === 'ALL' ? [5, 6, 7, 8] : [boardSizeFilter]
+    const mode = modeFilter
+    
+    let bestScore: {moves: number, time: number, boardSize: number} | null = null
+    
+    for (const size of boardSizes) {
+      const key = `${size}x${size}-${mode}`
+      const score = userBestScores[key]
+      
+      if (score) {
+        if (!bestScore || score.moves < bestScore.moves || (score.moves === bestScore.moves && score.time < bestScore.time)) {
+          bestScore = { ...score, boardSize: size }
+        }
+      }
+    }
+    
+    if (!bestScore) return null
+    
+    // Calculate rank based on filtered leaderboard
+    const filtered = getFilteredLeaderboard()
+    const betterThan = filtered.filter(entry => 
+      entry.moves < bestScore!.moves || (entry.moves === bestScore!.moves && entry.time < bestScore!.time)
+    ).length
+    
+    return {
+      moves: bestScore.moves,
+      time: bestScore.time,
+      boardSize: bestScore.boardSize,
+      rank: betterThan + 1
+    }
+  }
+
+  // Render leaderboard component
+  function renderLeaderboard(compact = false, mobile = false) {
+    const entries = getFilteredLeaderboard()
+    
+    if (compact) {
+      // Tablet horizontal bar
+      return (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full bg-gradient-to-r from-red-950/30 via-black to-red-950/30 border border-red-900/50 rounded-lg p-3 mb-6 backdrop-blur-sm overflow-x-auto"
+        >
+          <div className="flex items-center justify-around gap-4 min-w-max px-4">
+            <span className="text-red-400 font-mono text-sm flex items-center gap-1">
+              <Trophy className="w-4 h-4" /> TOP SCORES:
+            </span>
+            {entries.slice(0, 3).map((entry, i) => (
+              <span key={i} className="text-gray-300 font-mono text-xs">
+                #{entry.rank}: {entry.username} - {formatTime(entry.time)}
+              </span>
+            ))}
+            {(() => {
+              const userBest = getUserBestForCurrentFilters()
+              return userBest && (
+                <span className="text-red-400 font-mono text-xs border-l border-red-900/50 pl-4">
+                  YOU: #{userBest.rank} ({userBest.moves} moves)
+                </span>
+              )
+            })()}
+          </div>
+        </motion.div>
+      )
+    }
+    
+    // Desktop/Mobile full leaderboard
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: mobile ? 0 : 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className={`${mobile ? 'h-full' : 'sticky top-4'} bg-gradient-to-br from-red-950/30 via-black to-purple-950/30 border border-red-900/50 rounded-xl p-6 backdrop-blur-sm shadow-[0_0_30px_rgba(239,68,68,0.3)] ${mobile ? '' : 'max-h-[90vh] overflow-hidden flex flex-col'}`}
+      >
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-2xl font-bold text-red-400 font-mono flex items-center gap-2">
+              <Trophy className="w-6 h-6" />
+              LEADERBOARD
+            </h3>
+            {mobile && (
+              <button
+                onClick={() => setShowMobileLeaderboard(false)}
+                className="text-gray-400 hover:text-red-400 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+          <div className="h-0.5 w-full bg-gradient-to-r from-red-900 via-red-500 to-red-900 mb-4" />
+          
+          {/* Filter tabs */}
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-mono text-gray-500 mb-2 block">TIME PERIOD</label>
+              <div className="flex gap-2">
+                {(['DAILY', 'WEEKLY', 'ALL-TIME'] as TimeFilter[]).map(filter => (
+                  <motion.button
+                    key={filter}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setTimeFilter(filter)}
+                    className={`flex-1 px-3 py-2 rounded-md font-mono text-xs transition-all ${
+                      timeFilter === filter
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-900/50'
+                        : 'bg-black/40 text-gray-400 border border-red-900/30 hover:border-red-500/50'
+                    }`}
+                  >
+                    {filter}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <label className="text-xs font-mono text-gray-500 mb-2 block">BOARD SIZE</label>
+              <div className="flex gap-2">
+                {(['ALL', 5, 6, 7, 8] as BoardSizeFilter[]).map(size => (
+                  <motion.button
+                    key={size}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setBoardSizeFilter(size)}
+                    className={`flex-1 px-3 py-2 rounded-md font-mono text-xs transition-all ${
+                      boardSizeFilter === size
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-900/50'
+                        : 'bg-black/40 text-gray-400 border border-red-900/30 hover:border-red-500/50'
+                    }`}
+                  >
+                    {size === 'ALL' ? 'ALL' : `${size}×${size}`}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <label className="text-xs font-mono text-gray-500 mb-2 block">MODE</label>
+              <div className="flex gap-2">
+                {(['NORMAL', 'BLIND'] as ModeFilter[]).map(mode => (
+                  <motion.button
+                    key={mode}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setModeFilter(mode)}
+                    className={`flex-1 px-3 py-2 rounded-md font-mono text-xs transition-all ${
+                      modeFilter === mode
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-900/50'
+                        : 'bg-black/40 text-gray-400 border border-red-900/30 hover:border-red-500/50'
+                    }`}
+                  >
+                    {mode}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Leaderboard entries */}
+        <div className="flex-1 overflow-y-auto space-y-2 mb-6 pr-2 custom-scrollbar">
+          <AnimatePresence mode="wait">
+            {entries.map((entry, index) => {
+              const userBest = getUserBestForCurrentFilters()
+              const isUserRank = userBest && userBest.rank === entry.rank && userBest.moves === entry.moves
+              return (
+                <motion.div
+                  key={`${timeFilter}-${entry.rank}`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`group flex items-center gap-3 p-3 rounded-lg transition-all ${
+                    isUserRank
+                      ? 'bg-red-950/50 border-2 border-red-500 shadow-lg shadow-red-900/30'
+                      : 'bg-black/40 border border-red-900/30 hover:bg-red-950/20 hover:border-red-500/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-[50px]">
+                    <span className={`font-mono font-bold text-lg ${
+                      isUserRank ? 'text-red-400' : index < 3 ? 'text-red-400' : 'text-gray-400'
+                    }`}>
+                      #{entry.rank}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono text-sm ${
+                        isUserRank ? 'text-red-300 font-bold' : 'text-gray-300'
+                      }`}>
+                        {entry.username}
+                      </span>
+                      {entry.isFastest && (
+                        <span title="Fastest time">
+                          <Zap className="w-4 h-4 text-yellow-400" />
+                        </span>
+                      )}
+                      {entry.isBlindMode && (
+                        <span title="Blind Mode">
+                          <EyeOff className="w-3 h-3 text-purple-400" />
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-3 text-xs font-mono text-gray-500 mt-1">
+                      <span>{entry.boardSize}×{entry.boardSize}</span>
+                      <span>•</span>
+                      <span>{formatTime(entry.time)}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+        </div>
+
+        {/* User's best section */}
+        {(() => {
+          const userBest = getUserBestForCurrentFilters()
+          return userBest && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="border-t border-red-900/50 pt-4 mt-auto"
+            >
+              <div className="bg-black/60 border-l-4 border-red-500 rounded-lg p-4">
+                <h4 className="font-mono text-sm text-red-400 mb-3 flex items-center gap-2">
+                  📊 YOUR BEST
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-mono">Rank:</span>
+                    <motion.span 
+                      key={`${boardSizeFilter}-${modeFilter}-${userBest.rank}`}
+                      initial={{ scale: 1.2, color: '#f87171' }}
+                      animate={{ scale: 1, color: '#fca5a5' }}
+                      className="font-bold font-mono"
+                    >
+                      #{userBest.rank}
+                    </motion.span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-mono">Best Score:</span>
+                    <span className="text-red-400 font-bold font-mono">{userBest.moves} moves</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-mono">Best Time:</span>
+                    <span className="text-red-400 font-bold font-mono">{formatTime(userBest.time)}</span>
+                  </div>
+                  {boardSizeFilter === 'ALL' && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400 font-mono">Board Size:</span>
+                      <span className="text-red-400 font-bold font-mono">{userBest.boardSize}×{userBest.boardSize}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )
+        })()}
+      </motion.div>
+    )
+  }
+
   function toggleBlindMode() {
     if (!blindMode) {
       // Opening the quiz modal when trying to enable blind mode
@@ -197,7 +602,13 @@ export default function KnightsTourGame() {
           </Link>
         </motion.div>
 
-        <div className="grid grid-cols-1 gap-8">
+        {/* Tablet horizontal leaderboard (768px - 1199px) */}
+        <div className="hidden md:block lg:hidden">
+          {renderLeaderboard(true)}
+        </div>
+
+        {/* Desktop two-column layout (≥1200px) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[70%_30%] gap-8">
           <div>
             {/* Header Card with Glowing Border */}
             <motion.div 
@@ -610,7 +1021,51 @@ export default function KnightsTourGame() {
               </TabsContent>
             </Tabs>
           </div>
+
+          {/* Desktop leaderboard panel (≥1200px) */}
+          <div className="hidden lg:block">
+            {renderLeaderboard()}
+          </div>
         </div>
+
+        {/* Mobile leaderboard button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowMobileLeaderboard(true)}
+          className="fixed bottom-4 right-4 md:bottom-6 md:right-6 lg:hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-full shadow-lg shadow-red-900/50 font-mono text-sm flex items-center gap-2 border border-red-500/50 z-30"
+        >
+          <Trophy className="w-5 h-5" />
+          Leaderboard
+          <ChevronUp className="w-4 h-4" />
+        </motion.button>
+
+        {/* Mobile leaderboard bottom sheet */}
+        <AnimatePresence>
+          {showMobileLeaderboard && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowMobileLeaderboard(false)}
+                className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden"
+              />
+              
+              {/* Bottom sheet */}
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="fixed bottom-0 left-0 right-0 max-h-[80vh] z-50 lg:hidden"
+              >
+                {renderLeaderboard(false, true)}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </main>
       
       {/* Invalid Move Modal */}
