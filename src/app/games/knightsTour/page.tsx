@@ -865,15 +865,15 @@ export default function KnightsTourGame() {
                       )}
 
                       {/* Chess Board */}
-                      <div className="relative p-8 max-w-md mx-auto mb-8">
+                      <div className="relative p-4 sm:p-8 w-full flex justify-center mb-8">
                         <div className="absolute -inset-1 bg-gradient-to-r from-red-600/20 to-red-800/20 rounded-xl blur" />
-                        <div className="relative bg-black/60 border-2 border-red-900/50 rounded-xl p-4 backdrop-blur-sm">
+                        <div className="relative bg-black/60 border-2 border-red-900/50 rounded-xl p-2 sm:p-4 backdrop-blur-sm w-full max-w-md">
                           <div
-                            className="grid gap-0.5 p-1 rounded-lg"
+                            className="grid gap-0.5 p-1 rounded-lg w-full"
                             style={{
                               gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
-                              width: '400px',
-                              height: '400px',
+                              aspectRatio: '1/1',
+                              maxWidth: '400px',
                               margin: '0 auto'
                             }}
                           >
