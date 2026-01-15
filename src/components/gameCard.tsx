@@ -67,7 +67,7 @@ export default function GameCard({ title, description, players, image, href, gam
       <CardContent className="flex-1">
         <div className="flex items-center text-sm text-gray-400">
           <Users className="h-4 w-4 mr-1" />
-          <span>{players} Players</span>
+          <span>{players} Player{players === "1" ? "" : "s"}</span>
         </div>
       </CardContent>
       <CardFooter className="mt-auto">

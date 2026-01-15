@@ -246,8 +246,8 @@ export default function Home() {
             />
              <GameCard
               title={<span className="text-red-500">Wall Baduk</span>}
-              description="Wall Baduk aka Wall Go - this game is still in development"
-              players="2+"
+              description="Wall Baduk aka Wall Go. Claim the largest territory."
+              players="2"
               image="/images/game4.png"
               href="/games/wallBaduk"
               gameMode="local"

@@ -30,7 +30,7 @@ As a developer and puzzle enthusiast, I wanted to bring the intellectual challen
 | **♞ Knight's Tour** | ✅ Available | 1 | Navigate a chess knight across the board |
 | **➖ Remove One** | ✅ Available | Online Multiplayer | Strategic number elimination game |
 | **⏱️ Time Auction** | 🚧 Coming Soon | Online Multiplayer | Bid your time wisely to win challenges |
-| **⚫ Wall Baduk** | 🚧 Coming Soon | Local Multiplayer | Strategic territory control game |
+| **⚫ Wall Baduk** | ✅ Available | Local Multiplayer | Strategic territory control game |
 
 > **Note:** Online Multiplayer games may occasionally experience server delays during peak gameplay (actively working on optimizations!)
 
