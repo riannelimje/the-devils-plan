@@ -161,11 +161,6 @@ export default function About() {
       console.log('%c💡 HINT: "The CLASSIFIED CONTENT holds secrets. Click to unlock."', styles.puzzle)
     }, 1000)
     
-    setTimeout(() => {
-      console.log('%c\n👁️  Someone is watching...', styles.warning)
-      console.log('%c🧠 Intelligence Level: Superior', styles.info)
-      console.log('%c⚡ Status: ACTIVE', styles.info)
-    }, 2000)
     
     setTimeout(() => {
       console.log('%c\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', styles.secret)
@@ -219,8 +214,8 @@ export default function About() {
         console.log('%c\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4ade80; font-family: monospace;')
         console.log('%c✅ LOCK BREACHED!', styles.success)
         console.log('%c📡 ENCRYPTED MESSAGE RECEIVED:', styles.progress)
-        console.log('%c\n01010100 01001000 01000101 00100000 01000111 01000001 01001101 01000101\n', styles.binary)
-        console.log('%c💡 HINT: Decode this binary message. Type the decoded text anywhere on the page. (note: no space!)', styles.progress)
+        console.log('%c\n01010100 01001000 01000101 01000111 01000001 01001101 01000101\n', styles.binary)
+        console.log('%c💡 HINT: Decode this binary message. Type the decoded text into the text box. (note: no space!)', styles.progress)
         console.log('%c🔍 Binary translates to ASCII text...', 'color: #a78bfa; font-size: 11px; font-style: italic;')
       }, 300)
     }
