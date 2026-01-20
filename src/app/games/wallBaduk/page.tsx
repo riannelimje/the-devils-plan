@@ -715,18 +715,18 @@ export default function WallBadukGame() {
 
     // Column headers
     const colHeaders = []
-    colHeaders.push(<div key="corner" className="w-16 h-8" />) // Corner space
+    colHeaders.push(<div key="corner" className="w-10 sm:w-16 h-6 sm:h-8" />) // Corner space
     for (let col = 0; col < BOARD_SIZE; col++) {
       colHeaders.push(
         <div
           key={`col-header-${col}`}
-          className="w-16 h-8 flex items-center justify-center text-gray-400 text-sm font-mono"
+          className="w-10 sm:w-16 h-6 sm:h-8 flex items-center justify-center text-gray-400 text-xs sm:text-sm font-mono"
         >
           {getColLabel(col)}
         </div>,
       )
       if (col < BOARD_SIZE - 1) {
-        colHeaders.push(<div key={`col-spacer-${col}`} className="w-4 h-8" />)
+        colHeaders.push(<div key={`col-spacer-${col}`} className="w-2 sm:w-4 h-6 sm:h-8" />)
       }
     }
     boardElements.push(
@@ -743,7 +743,7 @@ export default function WallBadukGame() {
       rowElements.push(
         <div
           key={`row-label-${row}`}
-          className="w-16 h-16 flex items-center justify-center text-gray-400 text-sm font-mono"
+          className="w-10 sm:w-16 h-10 sm:h-16 flex items-center justify-center text-gray-400 text-xs sm:text-sm font-mono"
         >
           {getRowLabel(row)}
         </div>,
@@ -759,7 +759,7 @@ export default function WallBadukGame() {
         rowElements.push(
           <div
             key={`square-${row}-${col}`}
-            className={`w-16 h-16 rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center border-2 ${
+            className={`w-10 sm:w-16 h-10 sm:h-16 rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center border-2 ${
               isValidMove
                 ? "bg-emerald-600 border-emerald-500"
                 : isPendingWall
@@ -777,7 +777,7 @@ export default function WallBadukGame() {
             {/* Counter */}
             {counter && (
               <div
-                className={`w-12 h-12 rounded-full cursor-pointer transition-all duration-200 ${
+                className={`w-7 sm:w-12 h-7 sm:h-12 rounded-full cursor-pointer transition-all duration-200 ${
                   counter.color === "red" ? "bg-red-400" : "bg-blue-400"
                 } ${selectedCounter === counter.id ? "ring-2 ring-white scale-110" : "hover:scale-105"}`}
                 onClick={(e) => {
@@ -801,7 +801,7 @@ export default function WallBadukGame() {
           rowElements.push(
             <div
               key={`vwall-${row}-${col}`}
-              className={`w-4 h-16 cursor-pointer transition-all duration-200 rounded-sm flex items-center justify-center ${
+              className={`w-2 sm:w-4 h-10 sm:h-16 cursor-pointer transition-all duration-200 rounded-sm flex items-center justify-center ${
                 vSlot?.occupied
                   ? vSlot.color === "red"
                     ? "bg-red-400"
@@ -817,7 +817,7 @@ export default function WallBadukGame() {
               }}
             >
               {vSlot?.occupied && (
-                <div className={`w-2 h-12 rounded-sm ${vSlot.color === "red" ? "bg-red-500" : "bg-blue-500"}`} />
+                <div className={`w-1 sm:w-2 h-7 sm:h-12 rounded-sm ${vSlot.color === "red" ? "bg-red-500" : "bg-blue-500"}`} />
               )}
             </div>,
           )
@@ -835,7 +835,7 @@ export default function WallBadukGame() {
         const hRowElements = []
 
         // Empty space for row label
-        hRowElements.push(<div key="row-spacer" className="w-16 h-4" />)
+        hRowElements.push(<div key="row-spacer" className="w-10 sm:w-16 h-2 sm:h-4" />)
 
         for (let col = 0; col < BOARD_SIZE; col++) {
           const hSlot = wallSlots.find((s) => s.type === "horizontal" && s.row === row && s.col === col)
@@ -848,7 +848,7 @@ export default function WallBadukGame() {
           hRowElements.push(
             <div
               key={`hwall-${row}-${col}`}
-              className={`w-16 h-4 cursor-pointer transition-all duration-200 rounded-sm flex items-center justify-center ${
+              className={`w-10 sm:w-16 h-2 sm:h-4 cursor-pointer transition-all duration-200 rounded-sm flex items-center justify-center ${
                 hSlot?.occupied
                   ? hSlot.color === "red"
                     ? "bg-red-400"
@@ -864,14 +864,14 @@ export default function WallBadukGame() {
               }}
             >
               {hSlot?.occupied && (
-                <div className={`w-12 h-2 rounded-sm ${hSlot.color === "red" ? "bg-red-500" : "bg-blue-500"}`} />
+                <div className={`w-7 sm:w-12 h-1 sm:h-2 rounded-sm ${hSlot.color === "red" ? "bg-red-500" : "bg-blue-500"}`} />
               )}
             </div>,
           )
 
           // Add spacer for vertical wall slots (except after last column)
           if (col < BOARD_SIZE - 1) {
-            hRowElements.push(<div key={`spacer-${row}-${col}`} className="w-4 h-4" />)
+            hRowElements.push(<div key={`spacer-${row}-${col}`} className="w-2 sm:w-4 h-2 sm:h-4" />)
           }
         }
 
@@ -1086,8 +1086,8 @@ export default function WallBadukGame() {
             </div>
 
             {/* Game Board */}
-            <div className="flex justify-center mb-6">
-              <div className="bg-gray-900 p-6 rounded-xl">{renderBoard()}</div>
+            <div className="flex justify-center mb-6 overflow-x-auto">
+              <div className="bg-gray-900 p-3 sm:p-6 rounded-xl">{renderBoard()}</div>
             </div>
 
             {/* Player Status */}
