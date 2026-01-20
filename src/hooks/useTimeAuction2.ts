@@ -62,6 +62,7 @@ export function useTimeAuction2() {
   const playersChannelRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null)
+  const endingAuctionRef = useRef(false) // Prevent multiple endAuction calls
 
   const isHost = currentPlayerId === room?.host_id
 
@@ -112,7 +113,7 @@ export function useTimeAuction2() {
         room_id: roomData.id,
         player_name: playerName,
         player_data: {
-          timeRemaining: settings.totalTimeBank * 60, // Convert to seconds
+          timeRemaining: settings.totalTimeBank * 60,
           tokens: 0,
           isHolding: false,
           holdStartTime: null,
@@ -228,14 +229,21 @@ export function useTimeAuction2() {
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
     if (!currentPlayer) return
 
-    // Prevent re-entering auction after releasing during auction phase
-    if (room.game_state.gamePhase === "auction" && currentPlayer.player_data.hasCompletedBid) {
+    // Can't press if already completed bid in this auction
+    if (currentPlayer.player_data.hasCompletedBid) {
+      console.log("Already completed bid - button disabled")
+      return
+    }
+
+    // Can't press if abandoned countdown
+    if (currentPlayer.player_data.abandonedCountdown) {
+      console.log("Abandoned countdown - button disabled")
       return
     }
 
     setIsButtonPressed(true)
 
-    // Update player state
+    // Record when they started holding (will be used to calculate actual auction time)
     await supabase
       .from("players")
       .update({
@@ -243,14 +251,12 @@ export function useTimeAuction2() {
           ...currentPlayer.player_data,
           isHolding: true,
           holdStartTime: Date.now(),
-          abandonedCountdown: false,
         },
       })
       .eq("id", currentPlayerId)
 
     // If in waiting phase, check if all players are now holding
     if (room.game_state.gamePhase === "waiting" && isHost) {
-      // Wait a bit for the database to update
       setTimeout(async () => {
         const { data: allPlayers } = await supabase
           .from("players")
@@ -273,30 +279,38 @@ export function useTimeAuction2() {
     if (!room || !currentPlayerId) return
 
     const currentPlayer = players.find((p) => p.id === currentPlayerId)
-    if (!currentPlayer) return
+    if (!currentPlayer || !currentPlayer.player_data.isHolding) return
 
     setIsButtonPressed(false)
 
     const now = Date.now()
-    const holdStartTime = currentPlayer.player_data.holdStartTime
+    const holdStartTime = currentPlayer.player_data.holdStartTime || now
 
-    // Calculate time spent
     let timeSpent = 0
-    if (holdStartTime && room.game_state.gamePhase === "auction") {
+    let wasAbandoned = false
+    let completedBid = false
+
+    if (room.game_state.gamePhase === "countdown") {
+      // Released during countdown = abandoned (no time spent)
+      wasAbandoned = true
+      timeSpent = 0
+      console.log(`${currentPlayer.player_name} abandoned during countdown`)
+    } else if (room.game_state.gamePhase === "auction") {
+      // Released during auction = calculate time from AFTER countdown ended
       const countdownEndTime = (room.game_state.auctionStartTime || 0) + 5000
-      const auctionStartTime = Math.max(holdStartTime, countdownEndTime)
-      timeSpent = Math.max(0, (now - auctionStartTime) / 1000)
-      timeSpent = Math.round(timeSpent * 10) / 10 // Round to 0.1 second
+      
+      // Only count time AFTER the countdown ended
+      const effectiveStartTime = Math.max(holdStartTime, countdownEndTime)
+      timeSpent = Math.max(0, (now - effectiveStartTime) / 1000)
+      timeSpent = Math.round(timeSpent * 10) / 10 // Round to 0.1s
+      
+      completedBid = true
+      console.log(`${currentPlayer.player_name} bid ${timeSpent}s`)
     }
 
     const newTimeRemaining = Math.max(0, currentPlayer.player_data.timeRemaining - timeSpent)
 
-    // Only mark as abandoned if released during countdown (not during auction)
-    const wasAbandoned = room.game_state.gamePhase === "countdown"
-    // Mark bid as completed if released during auction phase
-    const completedBid = room.game_state.gamePhase === "auction"
-
-    // Update player
+    // Update player state
     await supabase
       .from("players")
       .update({
@@ -311,16 +325,18 @@ export function useTimeAuction2() {
       })
       .eq("id", currentPlayerId)
 
-    // Record bid if in auction phase - always record, even if timeSpent is 0
+    // Record bid in room state if in auction phase
     if (room.game_state.gamePhase === "auction") {
-      const bids = { ...room.game_state.bids, [currentPlayerId]: timeSpent }
+      const updatedBids = { ...room.game_state.bids, [currentPlayerId]: timeSpent }
+      
+      console.log("Recording bid:", currentPlayerId, timeSpent, "Updated bids:", updatedBids)
 
       await supabase
         .from("rooms")
         .update({
           game_state: {
             ...room.game_state,
-            bids,
+            bids: updatedBids,
           },
         })
         .eq("id", room.id)
@@ -331,6 +347,8 @@ export function useTimeAuction2() {
   const startCountdown = async () => {
     if (!room || !isHost) return
 
+    console.log("Starting countdown")
+
     await supabase
       .from("rooms")
       .update({
@@ -339,7 +357,7 @@ export function useTimeAuction2() {
           gamePhase: "countdown",
           countdown: 5,
           auctionStartTime: Date.now(),
-          bids: {},
+          bids: {}, // Clear previous bids
         },
       })
       .eq("id", room.id)
@@ -353,7 +371,7 @@ export function useTimeAuction2() {
       const newCountdown = room.game_state.countdown - 1
 
       if (newCountdown <= 0) {
-        // Mark players who aren't holding as abandoned before starting auction
+        // Mark players who aren't holding as abandoned
         const { data: currentPlayers } = await supabase.from("players").select("*").eq("room_id", room.id)
         
         if (currentPlayers) {
@@ -365,6 +383,7 @@ export function useTimeAuction2() {
                   player_data: {
                     ...player.player_data,
                     abandonedCountdown: true,
+                    hasCompletedBid: true, // Can't re-enter
                   },
                 })
                 .eq("id", player.id)
@@ -372,7 +391,9 @@ export function useTimeAuction2() {
           }
         }
 
-        // Start auction
+        console.log("Countdown finished, starting auction")
+
+        // Start auction phase
         await supabase
           .from("rooms")
           .update({
@@ -408,62 +429,70 @@ export function useTimeAuction2() {
 
       if (!currentPlayers) return
 
-      // Check who's still holding
-      const stillHolding = currentPlayers.filter((p: Player) => p.player_data.isHolding && !p.player_data.abandonedCountdown)
-
-      // Force release for players who ran out of time
       const now = Date.now()
       const countdownEndTime = (room.game_state.auctionStartTime || 0) + 5000
 
-      for (const player of stillHolding) {
-        const holdStartTime = player.player_data.holdStartTime || 0
-        const auctionStartTime = Math.max(holdStartTime, countdownEndTime)
-        const timeSpent = Math.max(0, (now - auctionStartTime) / 1000)
+      // Check for players who ran out of time
+      for (const player of currentPlayers) {
+        if (player.player_data.isHolding && !player.player_data.abandonedCountdown) {
+          const holdStartTime = player.player_data.holdStartTime || countdownEndTime
+          const effectiveStartTime = Math.max(holdStartTime, countdownEndTime)
+          const timeSpent = Math.max(0, (now - effectiveStartTime) / 1000)
 
-        if (timeSpent >= player.player_data.timeRemaining) {
-          // Force release
-          await supabase
-            .from("players")
-            .update({
-              player_data: {
-                ...player.player_data,
-                isHolding: false,
-                holdStartTime: null,
-                timeRemaining: 0,
-              },
-            })
-            .eq("id", player.id)
+          // Force release if out of time
+          if (timeSpent >= player.player_data.timeRemaining) {
+            const finalTime = Math.round(player.player_data.timeRemaining * 10) / 10
+            
+            console.log(`${player.player_name} ran out of time! Bid: ${finalTime}s`)
 
-          // Record bid
-          const bids = { ...room.game_state.bids, [player.id]: player.player_data.timeRemaining }
-          await supabase
-            .from("rooms")
-            .update({
-              game_state: {
-                ...room.game_state,
-                bids,
-              },
-            })
-            .eq("id", room.id)
+            await supabase
+              .from("players")
+              .update({
+                player_data: {
+                  ...player.player_data,
+                  isHolding: false,
+                  holdStartTime: null,
+                  timeRemaining: 0,
+                  hasCompletedBid: true,
+                },
+              })
+              .eq("id", player.id)
+
+            // Record their final bid
+            const updatedBids = { ...room.game_state.bids, [player.id]: finalTime }
+            await supabase
+              .from("rooms")
+              .update({
+                game_state: {
+                  ...room.game_state,
+                  bids: updatedBids,
+                },
+              })
+              .eq("id", room.id)
+          }
         }
       }
 
-      // Refresh players to get updated state
-      const { data: refreshedPlayers } = await supabase.from("players").select("*").eq("room_id", room.id).eq("is_connected", true)
+      // Check if auction should end
+      const { data: refreshedPlayers } = await supabase
+        .from("players")
+        .select("*")
+        .eq("room_id", room.id)
+        .eq("is_connected", true)
       
       if (!refreshedPlayers) return
       
-      // Get players who participated (didn't abandon during countdown)
-      const participatingPlayers = refreshedPlayers.filter((p: Player) => !p.player_data.abandonedCountdown)
-      
-      // Check who's still holding among participating players
-      const stillHoldingAfter = participatingPlayers.filter((p: Player) => p.player_data.isHolding)
+      const participatingPlayers = refreshedPlayers.filter(
+        (p: Player) => !p.player_data.abandonedCountdown
+      )
+      const stillHolding = participatingPlayers.filter((p: Player) => p.player_data.isHolding)
 
-      // End auction only when NO participating players are holding (last person released)
-      if (participatingPlayers.length > 0 && stillHoldingAfter.length === 0) {
+      // End when no one is holding anymore
+      if (participatingPlayers.length > 0 && stillHolding.length === 0) {
+        console.log("All players released, ending auction")
         endAuction()
       }
-    }, 100) // Check every 100ms
+    }, 100)
 
     return () => clearInterval(interval)
   }, [room?.game_state.gamePhase, isHost])
@@ -472,46 +501,55 @@ export function useTimeAuction2() {
   const endAuction = async () => {
     if (!room || !isHost) return
 
-    const { data: currentPlayers } = await supabase.from("players").select("*").eq("room_id", room.id)
+    // Fetch fresh room data to get latest bids
+    const { data: freshRoom } = await supabase
+      .from("rooms")
+      .select("*")
+      .eq("id", room.id)
+      .single()
 
+    if (!freshRoom) return
+
+    const bids = freshRoom.game_state.bids
+    console.log("=== ENDING AUCTION ===")
+    console.log("All bids:", JSON.stringify(bids, null, 2))
+
+    const { data: currentPlayers } = await supabase.from("players").select("*").eq("room_id", room.id)
     if (!currentPlayers) return
 
-    // Get all bids
-    const bids = room.game_state.bids
-
-    // Find winner (highest bid among players who participated)
     let winner: string | null = null
-    let maxBid = 0
-    let tieCount = 0
+    let maxBid = -1
 
     const bidEntries = Object.entries(bids)
-    
-    // Find the maximum bid
-    for (const [playerId, bid] of bidEntries) {
-      if (bid > maxBid) {
-        maxBid = bid
-      }
-    }
 
-    // Count how many players have the max bid (check for ties)
-    if (maxBid > 0) {
+    if (bidEntries.length === 0) {
+      console.log("No bids recorded - no winner")
+    } else {
+      // Find max bid
       for (const [playerId, bid] of bidEntries) {
-        if (bid === maxBid) {
-          tieCount++
+        const bidAmount = bid as number
+        if (bidAmount > maxBid) {
+          maxBid = bidAmount
           winner = playerId
         }
       }
-    }
 
-    // If more than one player has the max bid, it's a tie (no winner)
-    if (tieCount > 1) {
-      winner = null
+      console.log(`Max bid: ${maxBid}s by ${winner}`)
+
+      // Check for ties
+      const tiedPlayers = bidEntries.filter(([_, bid]) => bid === maxBid)
+      
+      if (tiedPlayers.length > 1) {
+        console.log(`TIE! ${tiedPlayers.length} players bid ${maxBid}s`)
+        winner = null
+      }
     }
 
     // Award token to winner
     if (winner) {
       const winnerPlayer = currentPlayers.find((p: Player) => p.id === winner)
       if (winnerPlayer) {
+        console.log(`Awarding token to ${winnerPlayer.player_name}`)
         await supabase
           .from("players")
           .update({
@@ -541,7 +579,6 @@ export function useTimeAuction2() {
       const nextRound = room.game_state.currentRound + 1
 
       if (nextRound > room.game_settings.totalRounds) {
-        // Game over
         await supabase
           .from("rooms")
           .update({
