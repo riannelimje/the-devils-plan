@@ -19,7 +19,7 @@ export default function TimeAuction2Game() {
   const [playerName, setPlayerName] = useState("")
   const [gameSettings, setGameSettings] = useState({
     totalTimeBank: 10, // minutes (default: 10)
-    totalRounds: 19, // default: 19
+    totalRounds: 2, // default: 2
     minPlayers: 2,
   })
 
@@ -42,6 +42,16 @@ export default function TimeAuction2Game() {
   const [showRules, setShowRules] = useState(false)
   const [isPressingButton, setIsPressingButton] = useState(false)
   const [elapsedTime, setElapsedTime] = useState(0) // Track elapsed time in current auction
+  const [isGlitching, setIsGlitching] = useState(false)
+
+  // Glitch effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsGlitching(true)
+      setTimeout(() => setIsGlitching(false), 100)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Format time (seconds to mm:ss.s)
   const formatTime = (seconds: number) => {
@@ -204,16 +214,37 @@ export default function TimeAuction2Game() {
               <h1 className="text-4xl font-bold mb-4">
                 <span className="text-red-500">Time Auction</span> - Multiplayer
               </h1>
-              <p className="text-gray-400">Strategic bidding game where players use their time banks to win rounds</p>
-              <Link href="/games/timeAuction2/rules" target="_blank" className="text-blue-400 hover:underline mt-2 inline-block">
-                View Game Rules
-              </Link>
-
-              {/* Connection Status */}
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <Wifi className="w-4 h-4 text-green-500" />
-                <span className="text-green-500">Connected to Supabase</span>
-              </div>
+              <p className="text-gray-400 mb-4">Strategic bidding game where players use their time banks to win rounds</p>
+              <motion.a
+                href="/games/timeAuction2/rules"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative inline-flex items-center gap-2 text-sm font-mono group cursor-pointer"
+                whileHover={{ x: 5 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              >
+                <span className="text-gray-600 group-hover:text-red-400 transition-colors">{'>'}</span>
+                <span className="relative">
+                  <span className="text-gray-400 group-hover:text-white transition-colors">
+                    View Game Rules
+                  </span>
+                  {isGlitching && (
+                    <>
+                      <span className="absolute inset-0 text-red-500 opacity-70" style={{ transform: 'translate(-1px, 0)' }}>
+                        View Game Rules
+                      </span>
+                      <span className="absolute inset-0 text-blue-500 opacity-70" style={{ transform: 'translate(1px, 0)' }}>
+                        View Game Rules
+                      </span>
+                    </>
+                  )}
+                </span>
+                <motion.div
+                  className="w-1.5 h-1.5 bg-red-500 rounded-full"
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+              </motion.a>
             </div>
 
             {error && (
@@ -374,11 +405,11 @@ export default function TimeAuction2Game() {
                         }}
                         onBlur={() => {
                           if (gameSettings.totalRounds === 0) {
-                            setGameSettings((prev) => ({...prev, totalRounds: 19}));
+                            setGameSettings((prev) => ({...prev, totalRounds: 2}));
                           }
                         }}
                         className="bg-gray-800 border-gray-700"
-                        placeholder="e.g., 19"
+                        placeholder="e.g., 2"
                       />
                       <p className="text-xs text-gray-400 mt-1">Number of auction rounds to play</p>
                     </div>

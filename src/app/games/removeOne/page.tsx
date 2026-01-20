@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowLeft, Users, Clock, Wifi, WifiOff, Eye, CheckCircle, Trophy, Bug } from "lucide-react"
 import { motion } from "framer-motion"
@@ -36,10 +36,20 @@ export default function RemoveOneGame() {
   const [playerName, setPlayerName] = useState("")
   const [roomCodeInput, setRoomCodeInput] = useState("")
   const [showDebug, setShowDebug] = useState(false)
+  const [isGlitching, setIsGlitching] = useState(false)
   const [gameSettings, setGameSettings] = useState({
     totalRounds: 10,
     minPlayers: 2,
   })
+
+  // Glitch effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsGlitching(true)
+      setTimeout(() => setIsGlitching(false), 100)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Get current player
   const currentPlayer = players.find((p) => p.id === currentPlayerId)
@@ -134,25 +144,38 @@ export default function RemoveOneGame() {
               <h1 className="text-4xl font-bold mb-4">
                 <span className="text-red-500">Remove One</span> - Multiplayer
               </h1>
-              <p className="text-gray-400">Accumulate points by playing the lowest unique card each round!</p>
-              <Link href="/games/removeOne/rules" className="text-blue-400 hover:underline mt-2 inline-block">
-                View Game Rules
-              </Link>
+              <p className="text-gray-400 mb-4">Accumulate points by playing the lowest unique card each round!</p>
+              <motion.a
+                href="/games/removeOne/rules"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative inline-flex items-center gap-2 text-sm font-mono group cursor-pointer"
+                whileHover={{ x: 5 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              >
+                <span className="text-gray-600 group-hover:text-red-400 transition-colors">{'>'}</span>
+                <span className="relative">
+                  <span className="text-gray-400 group-hover:text-white transition-colors">
+                    View Game Rules
+                  </span>
+                  {isGlitching && (
+                    <>
+                      <span className="absolute inset-0 text-red-500 opacity-70" style={{ transform: 'translate(-1px, 0)' }}>
+                        View Game Rules
+                      </span>
+                      <span className="absolute inset-0 text-blue-500 opacity-70" style={{ transform: 'translate(1px, 0)' }}>
+                        View Game Rules
+                      </span>
+                    </>
+                  )}
+                </span>
+                <motion.div
+                  className="w-1.5 h-1.5 bg-red-500 rounded-full"
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+              </motion.a>
 
-              {/* Connection Status */}
-              <div className="flex items-center justify-center gap-2 mt-4">
-                {isConnected ? (
-                  <>
-                    <Wifi className="w-4 h-4 text-green-500" />
-                    <span className="text-green-500">Connected</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-4 h-4 text-red-500" />
-                    <span className="text-red-500">Disconnected - enter or create a game</span>
-                  </>
-                )}
-              </div>
             </div>
 
             {error && (
