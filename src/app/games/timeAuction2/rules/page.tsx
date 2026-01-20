@@ -253,7 +253,7 @@ export default function TimeAuction2Rules() {
           <div className="bg-blue-950/30 border border-blue-600 rounded-lg p-4">
             <h4 className="font-bold text-blue-400 mb-3">What Happens If You Run Out of Time?</h4>
             <p className="text-gray-300">
-              If your time bank reaches 0, you are <strong className="text-white">automatically released</strong> from the current auction. You can still participate in future rounds if you manage to win some back... but you won't have any time left to bid!
+              If your time bank reaches 0, you are <strong className="text-white">automatically released</strong> from the current auction. 
             </p>
           </div>
         </div>

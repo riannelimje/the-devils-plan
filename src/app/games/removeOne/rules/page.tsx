@@ -347,19 +347,20 @@ export default function RemoveOneRules() {
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
-    <Header />
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold mb-4">
-          <span className="text-red-500">Remove One</span> - Game Rules
-        </h1>
-        <p className="text-gray-400 max-w-2xl mx-auto">
-          Master the art of strategic card play in this psychological battle of wits. 
-          Read the rules below to become a Remove One champion!
-        </p>
-      </div>
+      <Header />
+      <main className="flex-1 container mx-auto px-4 py-12">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-4">
+            <span className="text-red-500">Remove One</span> - Game Rules
+          </h1>
+          <p className="text-gray-400 max-w-2xl mx-auto">
+            Master the art of strategic card play in this psychological battle of wits. 
+            Read the rules below to become a Remove One champion!
+          </p>
+        </div>
 
-      <div className="space-y-4">
-        {sections.map((section) => (
+        <div className="max-w-4xl mx-auto space-y-4">
+          {sections.map((section) => (
           <Card key={section.id} className="bg-gray-900 border-gray-800">
             <CardHeader 
               className="cursor-pointer hover:bg-gray-800/50 transition-colors"
@@ -390,7 +391,7 @@ export default function RemoveOneRules() {
         ))}
       </div>
 
-      <div className="mt-8 text-center">
+      <div className="max-w-4xl mx-auto mt-8 text-center">
         <div className="bg-red-950/30 border border-red-600 rounded-lg p-6">
           <h3 className="text-xl font-bold text-red-400 mb-2">Ready to Play?</h3>
           <p className="text-gray-300 mb-4">
@@ -403,6 +404,7 @@ export default function RemoveOneRules() {
           </Link>
         </div>
       </div>
+    </main>
     </div>
   )
 }
