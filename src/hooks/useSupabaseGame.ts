@@ -562,12 +562,18 @@ export function useSupabaseGame() {
           table: "players",
           filter: `room_id=eq.${room.id}`,
         },
-        async () => {
-          // Refetch all players when any player changes
-          const { data } = await supabase.from("players").select("*").eq("room_id", room.id).order("created_at")
-
-          if (data) {
-            setPlayers(data)
+        (payload) => {
+          if (payload.eventType === "INSERT" && payload.new) {
+            // Add new player
+            setPlayers((prev) => [...prev, payload.new as Player])
+          } else if (payload.eventType === "UPDATE" && payload.new) {
+            // Update existing player
+            setPlayers((prev) =>
+              prev.map((p) => (p.id === (payload.new as Player).id ? (payload.new as Player) : p))
+            )
+          } else if (payload.eventType === "DELETE" && payload.old) {
+            // Remove player
+            setPlayers((prev) => prev.filter((p) => p.id !== (payload.old as Player).id))
           }
         },
       )
