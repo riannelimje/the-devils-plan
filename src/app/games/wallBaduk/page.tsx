@@ -63,6 +63,16 @@ export default function WallBadukGame() {
   const [showGameOver, setShowGameOver] = useState(false)
   const [winner, setWinner] = useState<Player | null>(null)
   const [turnCount, setTurnCount] = useState(0)
+  const [isGlitching, setIsGlitching] = useState(false)
+
+  // Glitch effect for rules link
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsGlitching(true)
+      setTimeout(() => setIsGlitching(false), 200)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Initialize wall slots
   const initializeWallSlots = useCallback(() => {
@@ -997,49 +1007,28 @@ export default function WallBadukGame() {
                     </div>
                   </div>
 
-                  {/* Rules */}
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-red-400 flex items-center gap-2">
-                      <Trophy className="w-4 h-4" />
-                      How to Play
-                    </h4>
-                    
-                    <div className="space-y-3 text-sm text-gray-300">
-                      <div className="bg-black/40 rounded p-3 border-l-2 border-red-500">
-                        <span className="font-semibold text-red-400">Setup:</span>
-                        <p className="mt-1">Each player starts with 2 pieces in fixed positions. Take turns placing your remaining 2 pieces anywhere on the board.</p>
-                      </div>
-                      
-                      <div className="bg-black/40 rounded p-3 border-l-2 border-blue-500">
-                        <span className="font-semibold text-blue-400">Movement:</span>
-                        <p className="mt-1">On your turn, select a piece and move it 0, 1, or 2 spaces in any cardinal direction (up, down, left, right). You cannot move through walls or other pieces.</p>
-                      </div>
-                      
-                      <div className="bg-black/40 rounded p-3 border-l-2 border-yellow-500">
-                        <span className="font-semibold text-yellow-400">Wall Placement:</span>
-                        <p className="mt-1">After moving, you must place a wall of your color adjacent to your piece's new position. Walls block movement for all pieces.</p>
-                      </div>
-                      
-                      <div className="bg-black/40 rounded p-3 border-l-2 border-green-500">
-                        <span className="font-semibold text-green-400">Winning:</span>
-                        <p className="mt-1">The game ends when all pieces are separated into territories (no piece can reach an opponent's piece). The player controlling the largest territory wins!</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Strategic Tips */}
-                  <div className="bg-red-950/20 rounded-lg p-4 border border-red-900/30">
-                    <h4 className="font-bold text-red-400 mb-2 flex items-center gap-2">
-                      <BrainCircuit className="w-4 h-4" />
-                      Strategy Tips
-                    </h4>
-                    <ul className="space-y-1 text-xs text-gray-400">
-                      <li>• Use walls to divide the board into territories</li>
-                      <li>• Control the center for maximum territory potential</li>
-                      <li>• Block your opponent's pieces from expanding</li>
-                      <li>• Plan ahead - each wall placement is permanent!</li>
-                    </ul>
-                  </div>
+                  {/* View Rules Link */}
+                  <motion.a
+                    href="/games/wallBaduk/rules"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center py-3 px-4 bg-black/40 border border-red-900/30 rounded-lg hover:border-red-700/50 transition-all group"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="text-red-400 font-mono text-sm flex items-center justify-center gap-2">
+                      <span className={isGlitching ? "glitch" : ""}>
+                        VIEW_GAME_RULES
+                      </span>
+                      <motion.span
+                        animate={{ x: [0, 3, 0] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      >
+                        →
+                      </motion.span>
+                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                    </span>
+                  </motion.a>
 
                   <Button onClick={setupGame} className="w-full bg-red-600 hover:bg-red-700 h-12 text-lg font-bold">
                     START GAME

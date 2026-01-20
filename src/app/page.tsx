@@ -238,7 +238,7 @@ export default function Home() {
             />
             <GameCard
               title={<span className="text-red-500">Time Auction</span>}
-              description="Bid from a limited time bank and become the last standing player to win! - this game is still in development"
+              description="Bid from a limited time bank and become the last standing player to win!"
               players="2+"
               image="/images/game3.png"
               href="/games/timeAuction2"
