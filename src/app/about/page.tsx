@@ -224,15 +224,15 @@ export default function About() {
   // Note: Keypress listener removed - now handled by input field below
   
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white overflow-hidden relative" onMouseMove={handleMouseMove}>
+    <div className="flex flex-col min-h-screen bg-black text-white overflow-x-hidden relative" onMouseMove={handleMouseMove}>
       {/* Scanline overlay */}
-      <div className="fixed inset-0 pointer-events-none z-10 opacity-10">
+      <div className="fixed inset-0 pointer-events-none z-10 opacity-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-500/5 to-transparent animate-scan" 
              style={{ animation: 'scan 8s linear infinite' }} />
       </div>
       
       {/* Animated particles */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-[5]">
         {particles.map((p) => (
           <FloatingParticle key={p.id} {...p} />
         ))}
@@ -240,7 +240,7 @@ export default function About() {
       
       {/* Spotlight effect */}
       <div 
-        className="fixed w-96 h-96 rounded-full pointer-events-none z-0 transition-all duration-300 ease-out"
+        className="fixed w-96 h-96 rounded-full pointer-events-none z-0 transition-all duration-300 ease-out hidden sm:block"
         style={{
           background: 'radial-gradient(circle, rgba(220,38,38,0.1) 0%, transparent 70%)',
           left: mousePosition.x - 192,
@@ -250,12 +250,12 @@ export default function About() {
       
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-12 relative z-20">
+      <main className="flex-1 container mx-auto px-4 py-6 sm:py-12 relative z-20">
         {/* Clearance badge */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex items-center justify-center gap-3 relative z-50"
+          className="mb-4 sm:mb-8 flex items-center justify-center gap-2 sm:gap-3 relative z-50 flex-wrap"
         >
           <motion.button
             type="button"
@@ -317,10 +317,10 @@ export default function About() {
             {/* Animated border glow */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 via-purple-600 to-red-600 rounded-xl opacity-30 group-hover:opacity-60 blur transition duration-1000 animate-pulse" />
             
-            <div className="relative bg-gradient-to-br from-red-950/30 via-purple-950/30 to-black p-12 rounded-xl border border-red-900/50 backdrop-blur-sm">
+            <div className="relative bg-gradient-to-br from-red-950/30 via-purple-950/30 to-black p-6 sm:p-8 md:p-12 rounded-xl border border-red-900/50 backdrop-blur-sm">
               {/* Status indicator */}
               <motion.div 
-                className="absolute top-6 right-6 flex items-center gap-2"
+                className="absolute top-3 right-3 sm:top-6 sm:right-6 flex items-center gap-2"
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
@@ -335,14 +335,14 @@ export default function About() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <div className="flex items-center justify-center gap-3 mb-2">
-                    <Brain className="w-8 h-8 text-red-500" />
-                    <h2 className="text-5xl font-bold tracking-tight">
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2">
+                    <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-red-500" />
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
                       <GlitchText className="bg-gradient-to-r from-red-500 via-purple-400 to-red-500 bg-clip-text text-transparent">
                         CLASSIFIED: ABOUT
                       </GlitchText>
                     </h2>
-                    <Brain className="w-8 h-8 text-red-500" />
+                    <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-red-500" />
                   </div>
                   <div className="h-0.5 w-32 mx-auto bg-gradient-to-r from-transparent via-red-500 to-transparent" />
                 </motion.div>
@@ -391,11 +391,11 @@ export default function About() {
                   transition={{ delay: 1, duration: 1 }}
                   className="space-y-6"
                 >
-                  <div className="font-mono text-sm text-gray-400 mb-4">
+                  <div className="font-mono text-xs sm:text-sm text-gray-400 mb-4">
                     <span className="text-red-500">[DOCUMENT_ID: TDP-2025]</span>
                   </div>
                   
-                  <p className="text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
+                  <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
                     This project is inspired by{' '}
                     <motion.span 
                       className="relative inline-block cursor-pointer group"
@@ -433,9 +433,9 @@ export default function About() {
                     </motion.span>
                   </p>
                   
-                  <div className="relative p-6 bg-black/40 rounded-lg border border-red-900/30 max-w-2xl mx-auto">
-                    <Sparkles className="absolute top-3 right-3 w-5 h-5 text-purple-400 animate-pulse" />
-                    <p className="text-lg text-gray-300 leading-relaxed">
+                  <div className="relative p-4 sm:p-6 bg-black/40 rounded-lg border border-red-900/30 max-w-2xl mx-auto">
+                    <Sparkles className="absolute top-2 right-2 sm:top-3 sm:right-3 w-4 h-4 sm:w-5 sm:h-5 text-purple-400 animate-pulse" />
+                    <p className="text-sm sm:text-base md:text-lg text-gray-300 leading-relaxed">
                       As a <span className="text-red-400">developer</span> and{' '}
                       <span className="text-purple-400">puzzle enthusiast</span>, I wanted to recreate 
                       the intellectual games so that <span className="text-red-400 font-semibold">everyone</span> can play them!
@@ -452,7 +452,7 @@ export default function About() {
                 >
                   <Link href="/">
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-lg px-8 py-6 shadow-lg shadow-red-900/50 border border-red-500/50">
+                      <Button className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-sm sm:text-base md:text-lg px-6 py-4 sm:px-8 sm:py-6 shadow-lg shadow-red-900/50 border border-red-500/50">
                         <Gamepad2 className="mr-2 h-5 w-5" />
                         Enter the Arena
                       </Button>
@@ -469,7 +469,7 @@ export default function About() {
                         animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
                         transition={{ duration: 1, ease: "easeOut" }}
                       >
-                        <Button variant="outline" className="relative border-green-900/50 hover:bg-green-950/50 text-lg px-8 py-6 backdrop-blur-sm overflow-hidden group">
+                        <Button variant="outline" className="relative border-green-900/50 hover:bg-green-950/50 text-sm sm:text-base md:text-lg px-6 py-4 sm:px-8 sm:py-6 backdrop-blur-sm overflow-hidden group">
                           {/* Animated glow effect */}
                           <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                           <Github className="mr-2 h-5 w-5 relative z-10" />
@@ -497,7 +497,7 @@ export default function About() {
                     <motion.button
                       type="button"
                       onClick={handleLockClick}
-                      className="flex items-center gap-2 px-8 py-6 text-gray-600 border border-gray-800/50 rounded-md backdrop-blur-sm cursor-pointer hover:border-yellow-900/50 hover:text-yellow-600 transition-colors"
+                      className="flex items-center gap-2 px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-6 text-gray-600 border border-gray-800/50 rounded-md backdrop-blur-sm cursor-pointer hover:border-yellow-900/50 hover:text-yellow-600 transition-colors"
                       animate={lockShake ? {
                         rotate: [0, -2, 2, -2, 2, 0],
                         scale: [1, 1.05, 1.05, 1.05, 1.05, 1]
@@ -526,9 +526,9 @@ export default function About() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 2 }}
-                  className="pt-8 space-y-2 border-t border-red-900/30"
+                  className="pt-6 sm:pt-8 space-y-2 border-t border-red-900/30"
                 >
-                  <p className="text-gray-500 text-sm font-mono flex items-center justify-center gap-2">
+                  <p className="text-gray-500 text-xs sm:text-sm font-mono flex items-center justify-center gap-2 flex-wrap">
                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                     OPEN SOURCE • CONTRIBUTIONS WELCOME
                   </p>
