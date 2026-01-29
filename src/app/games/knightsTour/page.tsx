@@ -375,7 +375,7 @@ export default function KnightsTourGame() {
       <motion.div
         initial={{ opacity: 0, x: mobile ? 0 : 20 }}
         animate={{ opacity: 1, x: 0 }}
-        className={`${mobile ? 'h-full' : 'sticky top-4'} bg-gradient-to-br from-red-950/30 via-black to-purple-950/30 border border-red-900/50 rounded-xl p-6 backdrop-blur-sm shadow-[0_0_30px_rgba(239,68,68,0.3)] ${mobile ? '' : 'max-h-[90vh] overflow-hidden flex flex-col'}`}
+        className={`${mobile ? 'h-full flex flex-col' : 'sticky top-4'} bg-gradient-to-br from-red-950/30 via-black to-purple-950/30 border border-red-900/50 rounded-xl p-6 backdrop-blur-sm shadow-[0_0_30px_rgba(239,68,68,0.3)] ${mobile ? '' : 'max-h-[90vh]'} overflow-hidden flex flex-col`}
       >
         {/* Header */}
         <div className="mb-6">
@@ -464,7 +464,7 @@ export default function KnightsTourGame() {
 
         {/* Leaderboard entries */}
         <div className="flex-1 overflow-y-auto space-y-2 mb-6 pr-2 custom-scrollbar">
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             {entries.map((entry, index) => {
               const userBest = getUserBestForCurrentFilters()
               const isUserRank = userBest && userBest.rank === entry.rank && userBest.moves === entry.moves
@@ -1226,7 +1226,7 @@ export default function KnightsTourGame() {
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
                 transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                className="fixed bottom-0 left-0 right-0 max-h-[80vh] z-50 lg:hidden"
+                className="fixed bottom-0 left-0 right-0 h-[80vh] overflow-hidden rounded-t-xl z-50 lg:hidden"
               >
                 {renderLeaderboard(false, true)}
               </motion.div>
