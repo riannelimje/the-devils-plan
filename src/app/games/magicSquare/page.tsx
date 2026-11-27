@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ExileDigit, ExileNumber } from '@/components/ExileGlyph'
+import { supabase } from '@/lib/supabase'
 import {
   BOARD_CONFIGS,
   BoardMode,
@@ -54,6 +55,9 @@ type SelectionState =
   | null
 
 type BestTimesMap = Record<string, number>
+type LeaderboardEntry = { id: number; username: string; board_size: number; assisted: boolean; time_seconds: number; created_at: string }
+type LeaderboardBoardFilter = 'ALL' | 3 | 7
+type LeaderboardModeFilter = 'ALL' | 'PURE' | 'ASSISTED'
 
 function formatDuration(totalSeconds: number): string {
   const mins = Math.floor(totalSeconds / 60)
@@ -83,6 +87,15 @@ export default function MagicSquareGame() {
   const [hasWon, setHasWon] = useState(false)
   const [showRulesModal, setShowRulesModal] = useState(false)
   const [bestTimes, setBestTimes] = useState<BestTimesMap>({})
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [leaderboardBoardFilter, setLeaderboardBoardFilter] = useState<LeaderboardBoardFilter>('ALL')
+  const [leaderboardModeFilter, setLeaderboardModeFilter] = useState<LeaderboardModeFilter>('ALL')
+  const [showFullLeaderboard, setShowFullLeaderboard] = useState(false)
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false)
+  const [usernameInput, setUsernameInput] = useState('')
+  const [usernameError, setUsernameError] = useState('')
+  const [scoreToSubmit, setScoreToSubmit] = useState<{ mode: BoardMode; assisted: boolean; time: number } | null>(null)
+  const [hasSubmittedCurrentScore, setHasSubmittedCurrentScore] = useState(false)
 
   const config = BOARD_CONFIGS[mode]
 
@@ -97,6 +110,21 @@ export default function MagicSquareGame() {
       // Ignore storage errors
     }
   }, [])
+
+  const refreshLeaderboard = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('magic_square_leaderboard')
+      .select('id, username, board_size, assisted, time_seconds, created_at')
+      .order('time_seconds', { ascending: true })
+      .limit(100)
+    if (error) {
+      console.error('Error fetching Magic Square leaderboard:', error)
+      return
+    }
+    setLeaderboard(data ?? [])
+  }, [])
+
+  useEffect(() => { void refreshLeaderboard() }, [refreshLeaderboard])
 
   // Timer tick
   useEffect(() => {
@@ -150,21 +178,21 @@ export default function MagicSquareGame() {
 
       const assistKey = usedAssistThisRun ? 'assisted' : 'pure'
       const recordKey = `${mode}-${assistKey}`
-      setBestTimes((prev) => {
-        const currentBest = prev[recordKey]
-        if (currentBest === undefined || elapsedSeconds < currentBest) {
-          const next = { ...prev, [recordKey]: elapsedSeconds }
-          try {
-            localStorage.setItem('magicSquareBestTimes', JSON.stringify(next))
-          } catch {
-            // Ignore storage errors
-          }
-          return next
+      const currentBest = bestTimes[recordKey]
+      if (currentBest === undefined || elapsedSeconds < currentBest) {
+        const next = { ...bestTimes, [recordKey]: elapsedSeconds }
+        setBestTimes(next)
+        try {
+          localStorage.setItem('magicSquareBestTimes', JSON.stringify(next))
+        } catch {
+          // Ignore storage errors
         }
-        return prev
-      })
+      }
+      setScoreToSubmit({ mode, assisted: usedAssistThisRun, time: elapsedSeconds })
+      setUsernameError('')
+      setShowUsernamePrompt(true)
     }
-  }, [validation.isSolved, hasWon, mode, usedAssistThisRun, elapsedSeconds])
+  }, [validation.isSolved, hasWon, mode, usedAssistThisRun, elapsedSeconds, bestTimes])
 
   const resetGame = useCallback(
     (nextMode: BoardMode = mode, keepShuffled = isBankShuffled) => {
@@ -176,6 +204,7 @@ export default function MagicSquareGame() {
       setTimerRunning(false)
       setIsPaused(false)
       setHasWon(false)
+      setHasSubmittedCurrentScore(false)
       setUsedAssistThisRun(showCodex || showTileNumbers || showLineSums)
 
       if (keepShuffled) {
@@ -338,6 +367,39 @@ export default function MagicSquareGame() {
 
   const pureBest = bestTimes[`${mode}-pure`]
   const assistedBest = bestTimes[`${mode}-assisted`]
+  const visibleLeaderboard = leaderboard
+    .filter((entry) => leaderboardBoardFilter === 'ALL' || entry.board_size === leaderboardBoardFilter)
+    .filter((entry) =>
+      leaderboardModeFilter === 'ALL' ||
+      (leaderboardModeFilter === 'ASSISTED' ? entry.assisted : !entry.assisted)
+    )
+    .slice(0, showFullLeaderboard ? 100 : 10)
+
+  const submitLeaderboardScore = async () => {
+    const username = usernameInput.trim()
+    if (username.length < 3 || username.length > 20) {
+      setUsernameError('Name must be between 3 and 20 characters.')
+      return
+    }
+    if (!scoreToSubmit) return
+    const { error } = await supabase.from('magic_square_leaderboard').insert({
+      username,
+      board_size: BOARD_CONFIGS[scoreToSubmit.mode].size,
+      assisted: scoreToSubmit.assisted,
+      time_seconds: scoreToSubmit.time,
+    })
+    if (error) {
+      console.error('Error submitting Magic Square score:', error)
+      setUsernameError('Could not submit score. Please try again.')
+      return
+    }
+    await refreshLeaderboard()
+    setHasSubmittedCurrentScore(true)
+    setShowUsernamePrompt(false)
+    setUsernameInput('')
+    setUsernameError('')
+    setScoreToSubmit(null)
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
@@ -757,6 +819,21 @@ export default function MagicSquareGame() {
                     </span>
                   </p>
                   <div className="flex justify-center gap-3 flex-wrap">
+                    {!hasSubmittedCurrentScore && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setScoreToSubmit({ mode, assisted: usedAssistThisRun, time: elapsedSeconds })
+                          setUsernameError('')
+                          setShowUsernamePrompt(true)
+                        }}
+                        className="border-emerald-500/60 text-emerald-300 hover:bg-emerald-500/15"
+                      >
+                        <Trophy className="w-4 h-4 mr-2" />
+                        Submit Score
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       onClick={() => resetGame(mode)}
@@ -781,7 +858,7 @@ export default function MagicSquareGame() {
           </div>
 
           {/* Draggable Tile Bank */}
-          <div className="xl:col-span-5">
+          <div className="xl:col-span-5 space-y-4">
             <div
               onDragOver={(e) => {
                 e.preventDefault()
@@ -901,6 +978,61 @@ export default function MagicSquareGame() {
               )}
             </div>
           </div>
+
+          {/* Public leaderboard */}
+          <section className="xl:col-span-12 rounded-2xl border border-red-900/40 bg-gradient-to-br from-red-950/20 via-zinc-950 to-amber-950/10 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-bold font-mono text-amber-300"><Trophy className="w-5 h-5" /> LEADERBOARD</h2>
+              <span className="text-xs font-mono text-gray-400">Fastest first · {showFullLeaderboard ? 'top 100' : 'top 10'}</span>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 text-xs font-mono">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-gray-500">BOARD</span>
+                {(['ALL', 3, 7] as LeaderboardBoardFilter[]).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setLeaderboardBoardFilter(filter)}
+                    className={`rounded-md border px-2.5 py-1 transition ${leaderboardBoardFilter === filter ? 'border-amber-500/70 bg-amber-500/15 text-amber-300' : 'border-zinc-800 bg-black/50 text-gray-400 hover:text-white'}`}
+                  >
+                    {filter === 'ALL' ? 'All' : `${filter}×${filter}`}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-gray-500">RUN</span>
+                {(['ALL', 'PURE', 'ASSISTED'] as LeaderboardModeFilter[]).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setLeaderboardModeFilter(filter)}
+                    className={`rounded-md border px-2.5 py-1 transition ${leaderboardModeFilter === filter ? 'border-amber-500/70 bg-amber-500/15 text-amber-300' : 'border-zinc-800 bg-black/50 text-gray-400 hover:text-white'}`}
+                  >
+                    {filter === 'ALL' ? 'All' : filter[0] + filter.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {visibleLeaderboard.length ? <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              {visibleLeaderboard.map((entry, index) => <li key={entry.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-sm font-mono">
+                <span className="min-w-0 truncate text-gray-200"><span className="text-amber-400 mr-2">#{index + 1}</span>{entry.username}</span>
+                <span className="shrink-0 text-right"><span className="block text-emerald-400">{formatDuration(entry.time_seconds)}</span><span className="block text-[10px] text-gray-500">{entry.board_size}×{entry.board_size} · {entry.assisted ? 'Assisted' : 'Pure'}</span></span>
+              </li>)}
+            </ol> : <p className="text-sm text-gray-500 font-mono">No scores for this board and mode yet.</p>}
+            {leaderboard.length > 10 && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFullLeaderboard((showing) => !showing)}
+                  className="border-amber-500/50 text-amber-300 hover:bg-amber-500/15"
+                >
+                  {showFullLeaderboard ? 'Show Top 10' : 'View Top 100'}
+                </Button>
+              </div>
+            )}
+          </section>
         </div>
       </main>
 
@@ -949,6 +1081,20 @@ export default function MagicSquareGame() {
               <span className="text-emerald-400">Pure Exile</span> run.
             </p>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUsernamePrompt} onOpenChange={(open) => { if (!open) setShowUsernamePrompt(false) }}>
+        <DialogContent className="bg-zinc-950 border-amber-500/50 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-amber-300 flex items-center gap-2"><Trophy className="w-5 h-5" /> Submit score</DialogTitle>
+            <DialogDescription className="text-gray-400">Add a name to post {scoreToSubmit ? formatDuration(scoreToSubmit.time) : ''} on the {scoreToSubmit ? BOARD_CONFIGS[scoreToSubmit.mode].label : ''} leaderboard.</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void submitLeaderboardScore() }}>
+            <input value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} maxLength={20} placeholder="Your name (3–20 characters)" className="w-full rounded-md border border-zinc-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
+            {usernameError && <p className="text-sm text-red-400">{usernameError}</p>}
+            <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700">Submit Score</Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
