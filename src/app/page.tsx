@@ -106,7 +106,7 @@ function TypewriterText() {
 export default function Home() {
   const [rippleEffect, setRippleEffect] = useState<{ x: number; y: number; id: number } | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [activeSeason, setActiveSeason] = useState<SeasonNumber>(3)
+  const [activeSeason, setActiveSeason] = useState<SeasonNumber>(2)
 
   useEffect(() => {
     setMounted(true)
