@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { ArrowRight } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from "@/components/ui/button"
 import Header from "@/components/header"
 import GameCard from "@/components/gameCard"
+import { GAMES, SEASONS, SeasonNumber } from "@/data/games"
+import {
+  SeasonTabs,
+  MagicSquareCardVisual,
+} from "@/components/SeasonTabs"
 
 // Falling symbol component
 function FallingSymbol({ delay }: { delay: number }) {
@@ -101,10 +106,45 @@ function TypewriterText() {
 export default function Home() {
   const [rippleEffect, setRippleEffect] = useState<{ x: number; y: number; id: number } | null>(null)
   const [mounted, setMounted] = useState(false)
-  
+  const [activeSeason, setActiveSeason] = useState<SeasonNumber>(3)
+
   useEffect(() => {
     setMounted(true)
+    const params = new URLSearchParams(window.location.search)
+    const seasonParam = params.get('season')
+    if (seasonParam === '2') {
+      setActiveSeason(2)
+    } else if (seasonParam === '3') {
+      setActiveSeason(3)
+    }
   }, [])
+
+  const handleSelectSeason = (season: SeasonNumber) => {
+    setActiveSeason(season)
+    const url = new URL(window.location.href)
+    url.searchParams.set('season', String(season))
+    window.history.replaceState({}, '', url.toString())
+  }
+
+  const gameCounts = useMemo<Record<SeasonNumber, number>>(
+    () => ({
+      2: GAMES.filter((g) => g.season === 2 && !g.comingSoon).length,
+      3: GAMES.filter((g) => g.season === 3 && !g.comingSoon).length,
+    }),
+    []
+  )
+
+  const filteredGames = useMemo(
+    () => GAMES.filter((g) => g.season === activeSeason),
+    [activeSeason]
+  )
+
+  const activeSeasonMeta = SEASONS.find((s) => s.season === activeSeason) ?? SEASONS[0]
+
+  const getCustomVisual = (gameId: string) => {
+    if (gameId === 'magic-square') return <MagicSquareCardVisual />
+    return undefined
+  }
   
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-black text-black dark:text-white relative overflow-hidden">
@@ -121,7 +161,7 @@ export default function Home() {
 
       <main className="flex-1 container mx-auto px-4 py-12 relative z-10">
         {/* Hero Section */}
-        <section className="mb-16 text-center">
+        <section className="mb-14 text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-4">
             <TypewriterText />
             </h1>
@@ -129,11 +169,11 @@ export default function Home() {
             Challenge yourself with the same mental games featured in Netflix&apos;s 
             <br />
             <span className="font-bold text-purple-500 text-2xl md:text-3xl relative">
-              The Devil&apos;s Plan 2
+              The Devil&apos;s Plan {activeSeason}
             </span>        
             </p>
           <div className="flex justify-center gap-4">
-            <Link href="/games/knightsTour"> 
+            <Link href={activeSeasonMeta.featuredHref}> 
               <motion.div
                 className="relative"
                 whileHover={{ scale: 1.05 }}
@@ -214,45 +254,48 @@ export default function Home() {
             </Link>
           </div>
         </section>
-        {/* Games Section */}
-        <section className="mb-16">
+
+        {/* Games Section with Season Switcher */}
+        <section id="games" className="mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-6 text-center">
             Featured Games
           </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <GameCard
-              title={<span className="text-red-500">The Knight&apos;s Tour</span>}
-              description="A classic chess puzzle where you must move a knight to every square on the board without repeating."
-              players="1"
-              image="/images/game1.png" // remind me to find a better image
-              href="/games/knightsTour"
-              gameMode="single"
-            />
-            <GameCard
-              title={<span className="text-red-500">Remove One</span>}
-              description="The player with the lowest unique number wins the round."
-              players="2-8"
-              image="/images/game2.png"
-              href="/games/removeOne"
-              gameMode="online"
-            />
-            <GameCard
-              title={<span className="text-red-500">Time Auction</span>}
-              description="Bid from a limited time bank and become the last standing player to win!"
-              players="2+"
-              image="/images/game3.png"
-              href="/games/timeAuction2"
-              gameMode="online"
-            />
-             <GameCard
-              title={<span className="text-red-500">Wall Baduk</span>}
-              description="Wall Baduk aka Wall Go. Claim the largest territory."
-              players="2"
-              image="/images/game4.png"
-              href="/games/wallBaduk"
-              gameMode="local"
-            />
-            </div>
+
+          <SeasonTabs
+            activeSeason={activeSeason}
+            onSelectSeason={handleSelectSeason}
+            gameCounts={gameCounts}
+          />
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSeason}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.22 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {filteredGames.map((game) => (
+                <GameCard
+                  key={game.id}
+                  title={
+                    <span className={game.comingSoon ? 'text-gray-400' : 'text-red-500'}>
+                      {game.title}
+                    </span>
+                  }
+                  description={game.description}
+                  players={game.players}
+                  image={game.image}
+                  customVisual={getCustomVisual(game.id)}
+                  href={game.href}
+                  gameMode={game.gameMode}
+                  seasonBadge={game.seasonBadge}
+                  comingSoon={game.comingSoon}
+                />
+              ))}
+            </motion.div>
+          </AnimatePresence>
         </section>
 
       </main>

@@ -20,9 +20,15 @@ export default function Header() {
               <h1 className="text-xl font-bold">The Devil&apos;s Plan</h1>
           </Link>
         </div>
-        <nav className="flex items-center gap-6 ml-auto pr-4">
-          {/* update this link later */}
-          <Link href="/about" className="bg-white dark:bg-black text-black dark:text-white hover:text-red-400 transition"> 
+        <nav className="flex items-center gap-5 sm:gap-6 ml-auto pr-4">
+          <Link
+            href="/?season=3"
+            className="inline-flex items-center gap-1.5 text-sm sm:text-base bg-white dark:bg-black text-black dark:text-white hover:text-amber-400 transition"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            Season 3
+          </Link>
+          <Link href="/about" className="text-sm sm:text-base bg-white dark:bg-black text-black dark:text-white hover:text-red-400 transition"> 
             About
           </Link>
         </nav>
