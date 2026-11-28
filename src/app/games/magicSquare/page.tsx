@@ -986,7 +986,7 @@ export default function MagicSquareGame() {
               <span className="text-xs font-mono text-gray-400">Fastest first · {showFullLeaderboard ? 'top 100' : 'top 10'}</span>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 text-xs font-mono">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5" aria-label="Filter leaderboard by board size">
                 <span className="mr-1 text-gray-500">BOARD</span>
                 {(['ALL', 3, 7] as LeaderboardBoardFilter[]).map((filter) => (
                   <button
@@ -999,7 +999,7 @@ export default function MagicSquareGame() {
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5" aria-label="Filter leaderboard by run type">
                 <span className="mr-1 text-gray-500">RUN</span>
                 {(['ALL', 'PURE', 'ASSISTED'] as LeaderboardModeFilter[]).map((filter) => (
                   <button
@@ -1013,12 +1013,34 @@ export default function MagicSquareGame() {
                 ))}
               </div>
             </div>
-            {visibleLeaderboard.length ? <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              {visibleLeaderboard.map((entry, index) => <li key={entry.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-sm font-mono">
-                <span className="min-w-0 truncate text-gray-200"><span className="text-amber-400 mr-2">#{index + 1}</span>{entry.username}</span>
-                <span className="shrink-0 text-right"><span className="block text-emerald-400">{formatDuration(entry.time_seconds)}</span><span className="block text-[10px] text-gray-500">{entry.board_size}×{entry.board_size} · {entry.assisted ? 'Assisted' : 'Pure'}</span></span>
-              </li>)}
-            </ol> : <p className="text-sm text-gray-500 font-mono">No scores for this board and mode yet.</p>}
+            {visibleLeaderboard.length ? <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {visibleLeaderboard.map((entry, index) => (
+                <li
+                  key={entry.id}
+                  className="rounded-xl border border-zinc-800 bg-black/50 p-3.5 font-mono transition-colors hover:border-amber-500/40 hover:bg-amber-950/10"
+                >
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
+                    <span className="pt-0.5 text-base font-bold tabular-nums text-amber-400">#{index + 1}</span>
+                    <div className="min-w-0">
+                      <p className="break-words text-sm leading-5 text-gray-100" title={entry.username}>
+                        {entry.username}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                        <span className="rounded border border-zinc-700 bg-zinc-900/70 px-1.5 py-0.5 text-gray-400">
+                          {entry.board_size}×{entry.board_size}
+                        </span>
+                        <span className={`rounded border px-1.5 py-0.5 ${entry.assisted ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
+                          {entry.assisted ? 'Assisted' : 'Pure'}
+                        </span>
+                      </div>
+                    </div>
+                    <time className="pt-0.5 text-right text-base font-bold tabular-nums text-emerald-400">
+                      {formatDuration(entry.time_seconds)}
+                    </time>
+                  </div>
+                </li>
+              ))}
+            </ol> : <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-5 text-center text-sm font-mono text-gray-500">No scores match these filters yet.</p>}
             {leaderboard.length > 10 && (
               <div className="mt-4 flex justify-center">
                 <Button
